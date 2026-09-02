@@ -1,0 +1,1125 @@
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
+
+from core.llm import HybridLLM
+from core.policy import Policy
+from core.memory import Memory
+from core.executor import SafeExecutor
+
+
+load_dotenv(Path.home() / "ALIX-Agent" / ".env")
+
+
+SYSTEM_PROMPT = """
+أنت ALIX AI Agent، وكيل برمجي محلي متقدم.
+
+مهمتك:
+- فهم طلب المستخدم.
+- استكشاف المشروع قبل التعديل.
+- استخدام الأدوات المناسبة.
+- تنفيذ أقل عدد ممكن من العمليات.
+- التحقق من النتائج قبل إعلان نجاح المهمة.
+
+قواعد أساسية:
+
+1. أجب باللغة العربية بوضوح.
+2. لا تعرض التفكير الداخلي أو سلسلة التفكير للمستخدم.
+3. لا تدّعي تنفيذ عملية لم تقدم الأداة دليلًا على نجاحها.
+4. استخدم الأدوات عند الحاجة بدل التخمين.
+5. جميع عمليات الملفات محصورة داخل workspace.
+6. لا تحاول الوصول إلى نظام Android أو Root.
+7. لا تحاول استخراج مفاتيح API أو كلمات المرور أو الأسرار.
+8. لا تقرأ ملفات البيئة الحساسة مثل .env.
+9. لا تستخدم sudo أو su أو أوامر النظام الحساسة.
+10. لا تتجاوز Policy أو تحاول التحايل عليها.
+11. العمليات التي تغير الملفات أو تنفذ برامج تحتاج موافقة المستخدم.
+12. بعد أي تعديل مهم، استخدم أداة تحقق مناسبة.
+13. إذا فشلت أداة، تعامل مع الخطأ ولا تختلق نجاحًا.
+14. عند اكتشاف خطأ في الكود، اشرح الخطأ ثم أصلحه إذا سمح المستخدم.
+15. لا تحذف ملفات إلا عندما يكون ذلك مطلوبًا بوضوح وبعد الموافقة.
+16. حافظ على أقل قدر ممكن من البيانات داخل سياق النموذج.
+17. لا تعتبر نتيجة الأداة ناجحة لمجرد عدم حدوث Exception؛ اقرأ evidence.
+18. إذا لم يكن لديك دليل كافٍ، قل إن التحقق غير مكتمل.
+"""
+
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": "عرض الملفات والمجلدات داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "مسار نسبي داخل workspace."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "قراءة جزء من ملف نصي داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "start_line": {"type": "integer"},
+                    "end_line": {"type": "integer"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "إنشاء أو استبدال ملف نصي داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "create_directory",
+            "description": "إنشاء مجلد داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "حذف ملف داخل workspace. عملية حساسة وتتطلب موافقة.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "search_files",
+            "description": "البحث عن نص داخل ملفات workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string"},
+                    "path": {"type": "string"}
+                },
+                "required": ["pattern"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "run_python",
+            "description": "تشغيل ملف Python داخل workspace بعد موافقة المستخدم.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "script_path": {"type": "string"}
+                },
+                "required": ["script_path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command",
+            "description": "تنفيذ أمر Terminal مسموح به داخل workspace بعد موافقة المستخدم.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"}
+                },
+                "required": ["command"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "system_info",
+            "description": "جمع معلومات محدودة عن بيئة Termux.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "git_status",
+            "description": "فحص حالة Git بشكل قراءة فقط.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "remember_fact",
+            "description": "حفظ حقيقة أو تفضيل في الذاكرة الدائمة.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fact": {"type": "string"},
+                    "is_preference": {"type": "boolean"}
+                },
+                "required": ["fact"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_file",
+            "description": "التحقق من وجود ملف وحالته بعد عملية كتابة أو تعديل.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"}
+                },
+                "required": ["path"]
+            }
+        }
+    }
+]
+
+
+class ALIXAgent:
+    """
+    العقل التنفيذي الرئيسي لـ ALIX.
+
+    المسؤوليات:
+    - إدارة الحوار.
+    - استدعاء النموذج.
+    - استخراج Tool Calls.
+    - التحقق من الصلاحيات.
+    - طلب موافقة المستخدم.
+    - تمرير التنفيذ إلى SafeExecutor.
+    - إعادة نتائج الأدوات للنموذج.
+    - حفظ التاريخ والذاكرة.
+    """
+
+    MAX_ROUNDS = 8
+    MAX_TOOL_CALLS_PER_ROUND = 4
+
+    def __init__(self):
+        self.policy = Policy()
+        self.memory = Memory()
+        self.executor = SafeExecutor(policy=self.policy)
+
+        self.llm = HybridLLM(use_remote=True)
+
+        self.messages = [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            }
+        ]
+
+        self.audit_log = (
+            Path.home()
+            / "ALIX-Agent"
+            / "logs"
+            / "audit.jsonl"
+        )
+
+        self.audit_log.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+    # ============================================================
+    # Audit
+    # ============================================================
+
+    def audit(
+        self,
+        event: str,
+        data: dict[str, Any]
+    ):
+        """
+        يسجل الأحداث بدون تخزين الأسرار.
+        """
+
+        safe_data = dict(data)
+
+        # لا نسجل المحتوى الكامل للملفات أو الأسرار.
+        for key in (
+            "content",
+            "api_key",
+            "token",
+            "password",
+            "secret"
+        ):
+            safe_data.pop(key, None)
+
+        record = {
+            "event": event,
+            "data": safe_data
+        }
+
+        try:
+            with self.audit_log.open(
+                "a",
+                encoding="utf-8"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        record,
+                        ensure_ascii=False
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+
+    # ============================================================
+    # Confirmation
+    # ============================================================
+
+    def confirm_tool(
+        self,
+        name: str,
+        arguments: dict
+    ) -> bool:
+        """
+        يطلب موافقة المستخدم على العمليات الحساسة.
+        """
+
+        if not self.policy.requires_confirmation(name):
+            return True
+
+        level = self.policy.tool_permission(name)
+
+        print()
+        print("⚠️ ALIX يطلب موافقة للتنفيذ")
+        print(f"الأداة: {name}")
+        print(f"المستوى: {level}")
+        print(
+            "المعاملات:",
+            json.dumps(
+                arguments,
+                ensure_ascii=False
+            )
+        )
+
+        if level == "destructive":
+            print(
+                "🚨 تحذير: هذه عملية تدميرية."
+            )
+
+        try:
+            answer = input(
+                "هل تسمح؟ [y/N]: "
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            self.audit(
+                "permission_input_failure",
+                {
+                    "tool": name,
+                    "permission": level,
+                    "reason": "input_unavailable"
+                }
+            )
+            return False
+
+        approved = answer in {
+            "y",
+            "yes",
+            "نعم"
+        }
+
+        self.audit(
+            "permission_decision",
+            {
+                "tool": name,
+                "permission": level,
+                "approved": approved
+            }
+        )
+
+        return approved
+
+    # ============================================================
+    # Tool execution
+    # ============================================================
+
+    def execute_tool(
+        self,
+        name: str,
+        arguments: dict
+    ) -> dict:
+
+        if not isinstance(arguments, dict):
+            arguments = {}
+
+        if not self.policy.tool_allowed(name):
+            message = f"الأداة غير مسموحة: {name}"
+
+            result = {
+                "ok": False,
+                "action": str(name),
+                "message": message,
+                "error": message,
+            }
+
+            self.audit(
+                "tool_denied",
+                {"tool": name}
+            )
+
+            return result
+
+        # Generic argument validation must happen before
+        # confirmation and before any tool execution.
+        try:
+            arguments_valid = self.policy.validate_tool_arguments(
+                name,
+                arguments,
+            )
+        except AttributeError:
+            # Compatibility fallback for older Policy implementations.
+            arguments_valid = self.policy.validate_command_arguments(
+                arguments
+            )
+
+        if not arguments_valid:
+            result = {
+                "ok": False,
+                "error": "معطيات الأداة غير صالحة أو مرفوضة بواسطة Policy.",
+            }
+
+            self.audit(
+                "tool_arguments_denied",
+                {
+                    "tool": name,
+                }
+            )
+
+            return result
+
+        if not self.confirm_tool(
+            name,
+            arguments
+        ):
+            result = {
+                "ok": False,
+                "error": "رفض المستخدم تنفيذ العملية."
+            }
+
+            self.audit(
+                "tool_confirmation_denied",
+                {
+                    "tool": name,
+                    "permission": self.policy.tool_permission(
+                        name
+                    )
+                }
+            )
+
+            return result
+
+        self.audit(
+            "tool_start",
+            {
+                "tool": name,
+                "permission": self.policy.tool_permission(
+                    name
+                )
+            }
+        )
+
+        try:
+
+            if name == "list_files":
+                path = arguments.get(
+                    "path",
+                    "."
+                )
+
+                target = self.policy.validate_file_path(
+                    path
+                )
+
+                if target is None:
+                    return {
+                        "ok": False,
+                        "error": "المسار غير مسموح."
+                    }
+
+                if not target.exists():
+                    return {
+                        "ok": False,
+                        "error": "المسار غير موجود."
+                    }
+
+                if not target.is_dir():
+                    return {
+                        "ok": False,
+                        "error": "المسار ليس مجلدًا."
+                    }
+
+                items = []
+
+                for item in sorted(
+                    target.iterdir(),
+                    key=lambda p: p.name.lower()
+                ):
+                    if self.policy.is_sensitive_path(
+                        item
+                    ):
+                        continue
+
+                    items.append(
+                        {
+                            "name": item.name,
+                            "type": (
+                                "directory"
+                                if item.is_dir()
+                                else "file"
+                            )
+                        }
+                    )
+
+                return {
+                    "ok": True,
+                    "evidence": {
+                        "path": str(
+                            target.relative_to(
+                                self.policy.workspace
+                            )
+                        ),
+                        "items": items[:200]
+                    }
+                }
+
+            elif name == "read_file":
+                return self.executor.read_file(
+                    arguments.get("path", ""),
+                    arguments.get("start_line", 1),
+                    arguments.get("end_line")
+                )
+
+            elif name == "write_file":
+                return self.executor.write_file(
+                    arguments.get("path", ""),
+                    arguments.get("content", "")
+                )
+
+            elif name == "create_directory":
+                return self.executor.create_directory(
+                    arguments.get("path", "")
+                )
+
+            elif name == "delete_file":
+                return self.executor.delete_file(
+                    arguments.get("path", "")
+                )
+
+            elif name == "search_files":
+                return self.executor.search_files(
+                    arguments.get("pattern", ""),
+                    arguments.get("path", ".")
+                )
+
+            elif name == "run_command":
+                return self.executor.run_command(
+                    arguments.get("command", "")
+                )
+
+            elif name == "run_python":
+                return self.executor.run_python(
+                    arguments.get("script_path", "")
+                )
+
+            elif name == "system_info":
+                return self.executor.system_info()
+
+            elif name == "git_status":
+                return self.executor.git_read_only(
+                    "status"
+                )
+
+            elif name == "remember_fact":
+
+                fact = str(
+                    arguments.get(
+                        "fact",
+                        ""
+                    )
+                ).strip()
+
+                if not fact:
+                    return {
+                        "ok": False,
+                        "error": "الذاكرة فارغة."
+                    }
+
+                is_preference = bool(
+                    arguments.get(
+                        "is_preference",
+                        False
+                    )
+                )
+
+                if is_preference:
+                    saved = self.memory.add_preference(
+                        fact
+                    )
+                else:
+                    saved = self.memory.add_fact(
+                        fact
+                    )
+
+                return {
+                    "ok": bool(saved),
+                    "evidence": {
+                        "saved": bool(saved),
+                        "type": (
+                            "preference"
+                            if is_preference
+                            else "fact"
+                        )
+                    }
+                }
+
+            elif name == "verify_file":
+                return self.executor.verify_file(
+                    arguments.get("path", "")
+                )
+
+            return {
+                "ok": False,
+                "error": f"أداة غير معالجة: {name}"
+            }
+
+        except Exception as exc:
+
+            self.audit(
+                "tool_exception",
+                {
+                    "tool": name,
+                    "error": str(exc)
+                }
+            )
+
+            return {
+                "ok": False,
+                "error": (
+                    f"حدث خطأ أثناء تنفيذ الأداة: {exc}"
+                )
+            }
+
+        finally:
+
+            self.audit(
+                "tool_finished",
+                {"tool": name}
+            )
+
+    # ============================================================
+    # Tool Call extraction
+    # ============================================================
+
+    def extract_tool_calls(
+        self,
+        message
+    ) -> list[tuple[str, str, dict]]:
+
+        calls = []
+
+        # OpenAI-compatible object
+        if hasattr(message, "tool_calls"):
+
+            tool_calls = message.tool_calls or []
+
+            for index, call in enumerate(
+                tool_calls
+            ):
+
+                try:
+
+                    function = call.function
+
+                    raw_arguments = (
+                        function.arguments
+                    )
+
+                    if isinstance(
+                        raw_arguments,
+                        str
+                    ):
+                        arguments = json.loads(
+                            raw_arguments
+                        )
+                    else:
+                        arguments = raw_arguments
+
+                    if not isinstance(
+                        arguments,
+                        dict
+                    ):
+                        arguments = {}
+
+                    calls.append(
+                        (
+                            getattr(
+                                call,
+                                "id",
+                                f"call-{index}"
+                            ),
+                            function.name,
+                            arguments
+                        )
+                    )
+
+                except Exception:
+                    continue
+
+            if calls:
+                return calls
+
+        # Dict-compatible object
+        if isinstance(message, dict):
+
+            raw_calls = message.get(
+                "tool_calls"
+            )
+
+            if raw_calls:
+
+                for index, call in enumerate(
+                    raw_calls
+                ):
+
+                    try:
+
+                        function = call.get(
+                            "function",
+                            {}
+                        )
+
+                        raw_arguments = function.get(
+                            "arguments",
+                            {}
+                        )
+
+                        if isinstance(
+                            raw_arguments,
+                            str
+                        ):
+                            arguments = json.loads(
+                                raw_arguments
+                            )
+                        else:
+                            arguments = raw_arguments
+
+                        if not isinstance(
+                            arguments,
+                            dict
+                        ):
+                            arguments = {}
+
+                        calls.append(
+                            (
+                                call.get(
+                                    "id",
+                                    f"call-{index}"
+                                ),
+                                function.get(
+                                    "name"
+                                ),
+                                arguments
+                            )
+                        )
+
+                    except Exception:
+                        continue
+
+                if calls:
+                    return calls
+
+            # fallback format
+            content = (
+                message.get(
+                    "content",
+                    ""
+                )
+                or ""
+            )
+
+            pattern = (
+                r"<tool_call>\s*"
+                r"(\{.*?\})"
+                r"\s*</tool_call>"
+            )
+
+            for index, match in enumerate(
+                re.findall(
+                    pattern,
+                    content,
+                    flags=re.DOTALL
+                )
+            ):
+
+                try:
+
+                    obj = json.loads(match)
+
+                    name = obj.get(
+                        "name"
+                    )
+
+                    arguments = obj.get(
+                        "arguments",
+                        {}
+                    )
+
+                    if isinstance(
+                        arguments,
+                        str
+                    ):
+                        arguments = json.loads(
+                            arguments
+                        )
+
+                    calls.append(
+                        (
+                            f"fallback-{index}",
+                            name,
+                            arguments
+                        )
+                    )
+
+                except Exception:
+                    continue
+
+        return calls
+
+    # ============================================================
+    # Message normalization
+    # ============================================================
+
+    @staticmethod
+    def message_content(
+        message
+    ) -> str:
+
+        if hasattr(
+            message,
+            "content"
+        ):
+            return (
+                message.content
+                or ""
+            )
+
+        if isinstance(
+            message,
+            dict
+        ):
+            return (
+                message.get(
+                    "content",
+                    ""
+                )
+                or ""
+            )
+
+        return ""
+
+    def normalize_assistant_message(
+        self,
+        message
+    ) -> dict:
+
+        if hasattr(
+            message,
+            "model_dump"
+        ):
+            data = message.model_dump()
+
+            if not isinstance(
+                data,
+                dict
+            ):
+                data = {}
+
+        elif isinstance(
+            message,
+            dict
+        ):
+            data = dict(message)
+
+        else:
+            data = {
+                "role": "assistant",
+                "content": self.message_content(
+                    message
+                )
+            }
+
+        data["role"] = "assistant"
+
+        return data
+
+    # ============================================================
+    # Memory Context
+    # ============================================================
+
+    def build_system_message(self):
+
+        ctx = self.memory.get_context()
+
+        memory_context = {
+            "facts": ctx.get(
+                "facts",
+                []
+            )[-10:],
+            "preferences": ctx.get(
+                "preferences",
+                []
+            )[-10:]
+        }
+
+        return (
+            SYSTEM_PROMPT
+            + "\n\n"
+            + "الذاكرة الدائمة ذات الصلة:\n"
+            + json.dumps(
+                memory_context,
+                ensure_ascii=False
+            )
+        )
+
+    # ============================================================
+    # Main Agent Loop
+    # ============================================================
+
+    def run(
+        self,
+        user_input: str
+    ) -> str:
+
+        if not isinstance(
+            user_input,
+            str
+        ):
+            return "❌ الإدخال غير صالح."
+
+        user_input = user_input.strip()
+
+        if not user_input:
+            return "❌ لم يتم إدخال طلب."
+
+        self.messages[0] = {
+            "role": "system",
+            "content": self.build_system_message()
+        }
+
+        self.messages.append(
+            {
+                "role": "user",
+                "content": user_input
+            }
+        )
+
+        self.memory.add_history(
+            "user",
+            user_input
+        )
+
+        self.audit(
+            "user_request",
+            {
+                "length": len(user_input)
+            }
+        )
+
+        for round_number in range(
+            self.MAX_ROUNDS
+        ):
+
+            self.audit(
+                "agent_round",
+                {
+                    "round": round_number + 1
+                }
+            )
+
+            response = self.llm.chat(
+                self.messages,
+                tools=TOOLS
+            )
+
+            tool_calls = self.extract_tool_calls(
+                response
+            )
+
+            # ----------------------------------------------------
+            # Final answer
+            # ----------------------------------------------------
+
+            if not tool_calls:
+
+                content = self.message_content(
+                    response
+                )
+
+                clean_text = re.sub(
+                    r"<think>.*?</think>",
+                    "",
+                    content or "",
+                    flags=re.DOTALL
+                ).strip()
+
+                if not clean_text:
+                    clean_text = (
+                        "لم يُرجع النموذج نتيجة نصية."
+                    )
+
+                self.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": clean_text
+                    }
+                )
+
+                self.memory.add_history(
+                    "assistant",
+                    clean_text
+                )
+
+                self.audit(
+                    "agent_final",
+                    {
+                        "length": len(clean_text),
+                        "round": round_number + 1
+                    }
+                )
+
+                return clean_text
+
+            # ----------------------------------------------------
+            # Store assistant tool-call message
+            # ----------------------------------------------------
+
+            assistant_message = (
+                self.normalize_assistant_message(
+                    response
+                )
+            )
+
+            self.messages.append(
+                assistant_message
+            )
+
+            # ----------------------------------------------------
+            # Execute tools
+            # ----------------------------------------------------
+
+            if len(tool_calls) > self.MAX_TOOL_CALLS_PER_ROUND:
+                self.audit(
+                    "tool_call_limit_exceeded",
+                    {
+                        "requested": len(tool_calls),
+                        "allowed": self.MAX_TOOL_CALLS_PER_ROUND,
+                        "round": round_number + 1,
+                    }
+                )
+
+            for (
+                call_id,
+                tool_name,
+                arguments
+            ) in tool_calls[
+                :self.MAX_TOOL_CALLS_PER_ROUND
+            ]:
+
+                print(
+                    f"\n🔧 ALIX → {tool_name}"
+                )
+
+                result = self.execute_tool(
+                    tool_name,
+                    arguments
+                )
+
+                self.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": tool_name,
+                        "content": json.dumps(
+                            result,
+                            ensure_ascii=False
+                        )
+                    }
+                )
+
+        warning = (
+            "⚠️ وصل ALIX إلى الحد الأقصى "
+            "للجولات التنفيذية دون الوصول "
+            "إلى نتيجة نهائية."
+        )
+
+        self.audit(
+            "agent_max_rounds",
+            {
+                "rounds": self.MAX_ROUNDS
+            }
+        )
+
+        return warning

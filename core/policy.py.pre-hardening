@@ -1,0 +1,520 @@
+from __future__ import annotations
+
+import re
+import shlex
+from pathlib import Path
+from typing import Optional
+
+
+class Policy:
+    """
+    ALIX Security Policy Engine.
+
+    المسؤوليات:
+    - عزل عمليات الملفات داخل workspace.
+    - منع الوصول إلى الملفات الحساسة.
+    - التحقق من أوامر Terminal باستخدام Allowlist.
+    - تصنيف الأدوات حسب مستوى الخطورة.
+    - تحديد الأدوات التي تتطلب موافقة المستخدم.
+    - منع تسريب الأسرار والملفات الحساسة.
+    """
+
+    def __init__(self):
+        self.base_dir = (Path.home() / "ALIX-Agent").resolve()
+        self.workspace = (self.base_dir / "workspace").resolve()
+
+        self.workspace.mkdir(parents=True, exist_ok=True)
+
+        # ---------------------------------------------------------
+        # مستويات الصلاحيات
+        # ---------------------------------------------------------
+
+        self.permission_levels = {
+            "read": 0,
+            "write": 1,
+            "execute": 2,
+            "destructive": 3,
+        }
+
+        # الأدوات المسموح لـ Agent باستخدامها.
+        self.tool_permissions = {
+            "list_files": "read",
+            "read_file": "read",
+            "search_files": "read",
+            "system_info": "read",
+            "git_status": "read",
+
+            "write_file": "write",
+            "create_directory": "write",
+
+            "run_python": "execute",
+            "run_command": "execute",
+
+            "delete_file": "destructive",
+
+            "remember_fact": "write",
+        }
+
+        # ---------------------------------------------------------
+        # أوامر Terminal المسموح بها
+        # ---------------------------------------------------------
+
+        self.allowed_commands = {
+            "pwd",
+            "ls",
+            "cat",
+            "head",
+            "tail",
+            "grep",
+            "find",
+            "wc",
+            "sort",
+            "uniq",
+            "cut",
+            "tr",
+            "echo",
+            "printf",
+            "date",
+            "whoami",
+            "uname",
+            "df",
+            "du",
+            "free",
+            "file",
+            "which",
+
+            # Python
+            "python",
+            "python3",
+
+            # Git - أوامر قراءة فقط في هذه الطبقة
+            "git",
+        }
+
+        # ---------------------------------------------------------
+        # أوامر ممنوعة صراحة
+        # ---------------------------------------------------------
+
+        self.blocked_commands = {
+            "rm",
+            "rmdir",
+            "mkfs",
+            "dd",
+            "chmod",
+            "chown",
+            "mount",
+            "umount",
+            "su",
+            "sudo",
+            "reboot",
+            "shutdown",
+            "poweroff",
+            "kill",
+            "pkill",
+            "killall",
+
+            "iptables",
+            "ip6tables",
+            "nft",
+
+            "termux-chroot",
+            "proot",
+            "proot-distro",
+
+            "passwd",
+            "useradd",
+            "userdel",
+            "usermod",
+
+            "crontab",
+
+            "ssh",
+            "scp",
+            "sftp",
+
+            "nc",
+            "netcat",
+            "ncat",
+        }
+
+        # ---------------------------------------------------------
+        # أوامر Git التي نسمح بها حاليًا
+        # ---------------------------------------------------------
+
+        self.allowed_git_commands = {
+            "status",
+            "log",
+            "diff",
+            "show",
+            "branch",
+            "rev-parse",
+        }
+
+        # ---------------------------------------------------------
+        # الملفات/المجلدات الحساسة
+        # ---------------------------------------------------------
+
+        self.sensitive_names = {
+            ".env",
+            ".env.local",
+            ".env.production",
+            ".env.development",
+
+            ".git-credentials",
+            "credentials",
+            "credentials.json",
+
+            "id_rsa",
+            "id_ed25519",
+            "authorized_keys",
+
+            "passwords.txt",
+            "secrets.txt",
+            "secret.json",
+            "tokens.json",
+        }
+
+        self.sensitive_directories = {
+            ".ssh",
+            ".gnupg",
+        }
+
+        # ملفات لا نريد للوكيل قراءتها بسبب احتمال احتوائها على أسرار.
+        self.sensitive_extensions = {
+            ".pem",
+            ".key",
+            ".p12",
+            ".pfx",
+        }
+
+        # ---------------------------------------------------------
+        # أنماط خطرة
+        # ---------------------------------------------------------
+
+        self.blocked_patterns = [
+            r";",
+            r"&&",
+            r"\|\|",
+            r"\|",
+            r"`",
+            r"\$\(",
+            r"\$\{",
+
+            # redirection
+            r">\s*",
+            r"<\s*",
+
+            # path traversal
+            r"(?:^|/)\.\.(?:/|$)",
+            r"~\/\.\.",
+
+            # Android / Linux sensitive paths
+            r"(?:^|/)(etc|proc|sys|dev)(?:/|$)",
+            r"/data/data",
+            r"/data/user",
+
+            # privileged execution
+            r"\bsudo\b",
+            r"\bsu\b",
+            r"\bdoas\b",
+
+            # service / init
+            r"\bsystemctl\b",
+            r"\bservice\b",
+
+            # shell execution tricks
+            r"\bbash\s+-c\b",
+            r"\bsh\s+-c\b",
+            r"\bpython\s+-c\b",
+            r"\bpython3\s+-c\b",
+
+            # remote download + execution
+            r"\bcurl\b.*\b(sh|bash|python|python3)\b",
+            r"\bwget\b.*\b(sh|bash|python|python3)\b",
+
+            # common command substitution / expansion tricks
+            r"\bxargs\b",
+            r"\beval\b",
+            r"\bexec\b",
+        ]
+
+        # ---------------------------------------------------------
+        # حدود الموارد
+        # ---------------------------------------------------------
+
+        self.max_command_length = 1000
+        self.max_path_length = 500
+        self.max_search_pattern_length = 200
+
+    # =============================================================
+    # Path Security
+    # =============================================================
+
+    def resolve_path(self, path: str) -> Optional[Path]:
+        """
+        يحول المسار إلى Path مطلق ويتأكد أنه داخل workspace.
+        """
+
+        if not isinstance(path, str):
+            return None
+
+        if len(path) > self.max_path_length:
+            return None
+
+        path = path.strip()
+
+        if not path:
+            path = "."
+
+        # منع null bytes
+        if "\x00" in path:
+            return None
+
+        try:
+            candidate = Path(path)
+
+            if not candidate.is_absolute():
+                candidate = self.workspace / candidate
+
+            candidate = candidate.resolve(strict=False)
+
+        except (OSError, RuntimeError, ValueError):
+            return None
+
+        if not self.path_allowed(candidate):
+            return None
+
+        return candidate
+
+    def path_allowed(self, path: Path) -> bool:
+        """
+        يسمح فقط بالمسارات الواقعة داخل workspace.
+        """
+
+        try:
+            path = Path(path).resolve(strict=False)
+            workspace = self.workspace.resolve(strict=False)
+
+            if path == workspace:
+                return True
+
+            return workspace in path.parents
+
+        except (OSError, RuntimeError, ValueError):
+            return False
+
+    def is_sensitive_path(self, path: Path) -> bool:
+        """
+        يتحقق من كون المسار يحتوي على ملف/مجلد حساس.
+        """
+
+        try:
+            path = Path(path).resolve(strict=False)
+
+            workspace = self.workspace.resolve(strict=False)
+
+            if workspace not in path.parents and path != workspace:
+                return True
+
+            for part in path.parts:
+
+                if part in self.sensitive_names:
+                    return True
+
+                if part in self.sensitive_directories:
+                    return True
+
+            if path.suffix.lower() in self.sensitive_extensions:
+                return True
+
+            return False
+
+        except (OSError, RuntimeError, ValueError):
+            return True
+
+    # =============================================================
+    # Command Security
+    # =============================================================
+
+    def parse_command(self, command: str) -> Optional[list[str]]:
+        """
+        يحلل الأمر دون تنفيذه.
+        """
+
+        if not isinstance(command, str):
+            return None
+
+        command = command.strip()
+
+        if not command:
+            return None
+
+        if len(command) > self.max_command_length:
+            return None
+
+        if "\x00" in command:
+            return None
+
+        # منع shell operators والـ redirections
+        for pattern in self.blocked_patterns:
+            if re.search(pattern, command, flags=re.IGNORECASE):
+                return None
+
+        try:
+            parts = shlex.split(command, posix=True)
+        except ValueError:
+            return None
+
+        if not parts:
+            return None
+
+        return parts
+
+    def command_allowed(self, command: str) -> bool:
+        """
+        يتحقق من أن الأمر ينتمي إلى Allowlist.
+        """
+
+        parts = self.parse_command(command)
+
+        if not parts:
+            return False
+
+        executable = Path(parts[0]).name
+
+        if executable in self.blocked_commands:
+            return False
+
+        if executable not in self.allowed_commands:
+            return False
+
+        # ---------------------------------------------------------
+        # Git: السماح فقط بالأوامر غير التدميرية
+        # ---------------------------------------------------------
+
+        if executable == "git":
+
+            if len(parts) < 2:
+                return False
+
+            git_action = parts[1]
+
+            if git_action not in self.allowed_git_commands:
+                return False
+
+        return True
+
+    # =============================================================
+    # Tool Security
+    # =============================================================
+
+    def tool_allowed(self, tool_name: str) -> bool:
+        """
+        هل الأداة مسجلة ومسموح بها؟
+        """
+
+        return tool_name in self.tool_permissions
+
+    def tool_permission(self, tool_name: str) -> Optional[str]:
+        """
+        يعيد مستوى صلاحية الأداة.
+        """
+
+        return self.tool_permissions.get(tool_name)
+
+    def permission_level(self, tool_name: str) -> int:
+        """
+        يحول مستوى الصلاحية إلى رقم.
+        """
+
+        level = self.tool_permission(tool_name)
+
+        if level is None:
+            return -1
+
+        return self.permission_levels[level]
+
+    def requires_confirmation(self, action: str) -> bool:
+        """
+        العمليات التي تغير حالة النظام/المشروع تحتاج موافقة.
+        """
+
+        level = self.tool_permission(action)
+
+        return level in {
+            "write",
+            "execute",
+            "destructive",
+        }
+
+    def requires_explicit_confirmation(self, action: str) -> bool:
+        """
+        العمليات التدميرية تحتاج تأكيدًا صريحًا.
+        """
+
+        return self.tool_permission(action) == "destructive"
+
+    # =============================================================
+    # Argument Validation
+    # =============================================================
+
+    def validate_file_path(
+        self,
+        path: str,
+        allow_sensitive: bool = False,
+    ) -> Optional[Path]:
+        """
+        تحقق موحد لمسارات الملفات.
+        """
+
+        target = self.resolve_path(path)
+
+        if target is None:
+            return None
+
+        if not allow_sensitive and self.is_sensitive_path(target):
+            return None
+
+        return target
+
+    def validate_search_pattern(self, pattern: str) -> bool:
+        """
+        يمنع أنماط البحث الضخمة أو غير الصالحة.
+        """
+
+        if not isinstance(pattern, str):
+            return False
+
+        if not pattern.strip():
+            return False
+
+        if len(pattern) > self.max_search_pattern_length:
+            return False
+
+        if "\x00" in pattern:
+            return False
+
+        return True
+
+    # =============================================================
+    # Security Summary
+    # =============================================================
+
+    def security_summary(self) -> dict:
+        """
+        معلومات يمكن عرضها للمستخدم/للتشخيص.
+        لا تحتوي على أسرار.
+        """
+
+        return {
+            "workspace": str(self.workspace),
+            "workspace_isolation": True,
+            "sensitive_file_protection": True,
+            "command_allowlist": True,
+            "blocked_command_list": True,
+            "git_restricted": True,
+            "confirmation_required": True,
+            "destructive_confirmation": True,
+            "max_command_length": self.max_command_length,
+            "max_path_length": self.max_path_length,
+        }

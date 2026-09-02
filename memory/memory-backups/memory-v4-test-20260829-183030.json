@@ -1,0 +1,20 @@
+{
+  "facts": [
+    {
+      "key": "agent_name",
+      "value": "ALIX V4"
+    }
+  ],
+  "preferences": [
+    {
+      "key": "language",
+      "value": "Arabic"
+    }
+  ],
+  "history": [
+    {
+      "user": "مرحبا ALIX",
+      "assistant": "مرحبا! كيف أساعدك؟"
+    }
+  ]
+}

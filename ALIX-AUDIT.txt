@@ -1,0 +1,5063 @@
+===== ALIX AGENT AUDIT =====
+DATE: Sun Aug 30 17:36:08 +01 2026
+PYTHON: Python 3.14.6
+NODE: v24.18.0
+ARCH: aarch64
+
+===== PROJECT TREE =====
+./.env
+./ALIX-AUDIT.txt
+./ALIX-agent-FULL-SOURCE.txt
+./add_intelligence_v1.py
+./agent-V4-LAYER3-INTEGRATED-WORKING.py
+./agent-V4-LAYER4-INVESTIGATION-WORKING.py
+./agent-V4-LAYER5-ANALYZER-WORKING.py
+./agent-V4-LAYER5-BEFORE-EVIDENCE.py
+./agent-V4-LAYER5-BEFORE-LAYER6.py
+./agent-V4-LAYER5-BEFORE-READFILE-UPGRADE.py
+./agent-V4-LAYER5-CLASSIFIER-WORKING.py
+./agent-V4-LAYER5-CONTEXT-FILTER-WORKING.py
+./agent-V4-LAYER5-EVIDENCE-CORE-WORKING.py
+./agent-V4-LAYER5-READFILE-WORKING.py
+./agent-V4-LAYER6-DIAGNOSIS-WORKING.py
+./agent-V4-LAYER6.1-CONTEXT-BRIDGE-WORKING.py
+./agent-V4-LAYER6.1-VERIFICATION-BRIDGE-WORKING.py
+./agent-V4-planner-working.py
+./agent-before-agentic-loop-repair.py
+./agent-before-agentic-memory.py
+./agent-before-auto-memory-fix.py
+./agent-before-context-filter.py
+./agent-before-duplicate-memory-cleanup-20260829-194154.py
+./agent-before-evidence-analyzer.py
+./agent-before-evidence-classifier.py
+./agent-before-evidence-engine-core.py
+./agent-before-file-read-intelligence-fix.py
+./agent-before-file-read-router.py
+./agent-before-final-memory-repair-20260829-193758.py
+./agent-before-intelligence-integration.py
+./agent-before-intelligence-layer-1.py
+./agent-before-intelligence-layer-2.py
+./agent-before-intelligence-v1.py
+./agent-before-layer-2-functions.py
+./agent-before-layer-3-integration.py
+./agent-before-layer-3-orchestrator-functions.py
+./agent-before-layer-3-orchestrator.py
+./agent-before-layer-4-investigation.py
+./agent-before-layer4-project-targets.py
+./agent-before-layer5-integration.py
+./agent-before-loop-final-repair-20260829-194028.py
+./agent-before-memory-cleanup.py
+./agent-before-memory-tools.py
+./agent-before-readfile-fix.py
+./agent-before-v4-intelligence.py
+./agent-before-v4-loop-restore.py
+./agent-before-v4-planner-context-write.py
+./agent-before-v4-planner-integration.py
+./agent-before-v4-planner.py
+./agent-pre-memory-v4-integration.py
+./agent-v2-backup.py
+./agent-v3-backup.py
+./agent-v3-before-memory-integration.py
+./agent-v3-pre-memory-backup.py
+./agent-v3-working-backup.py
+./agent.py
+./agent.py.backup_before_scan_fix_20260830_124720
+./agent.py.before-empty-response-fix
+./agent.py.before-final-synthesis
+./agent.py.before-loop-cleanup
+./agent.py.before-read-chunk-fix
+./agent.py.layer61-backup
+./agent.py.layer61-integrated
+./alix_agent.backup.py
+./alix_agent.py
+./core/__init__.py
+./core/__pycache__/__init__.cpython-314.pyc
+./core/__pycache__/agent.cpython-314.pyc
+./core/__pycache__/llm.cpython-314.pyc
+./core/__pycache__/memory.cpython-314.pyc
+./core/__pycache__/policy.cpython-314.pyc
+./core/__pycache__/registry.cpython-314.pyc
+./core/agent.pre-v3.py
+./core/agent.py
+./core/llm.py
+./core/llm.py.backup-before-timeout
+./core/memory.py
+./core/policy.py
+./core/registry.py
+./logs/agent.log
+./memory-manager-V4-LAYER3-WORKING.py
+./memory-manager-V4-working.py
+./memory-manager-before-v4-intelligence.py
+./memory/memory-backups/memory-v4-test-20260829-183030.json
+./memory/memory-backups/memory-v4-test-20260829-184301.json
+./memory/memory-backups/memory-v4-test-20260829-190818.json
+./memory/memory-backups/memory-v4-test-20260829-190820.json
+./memory/memory-backups/memory-v4-test-20260829-190906.json
+./memory/memory-backups/memory-v4-test-20260829-190937.json
+./memory/memory-backups/memory-v4-test-20260829-191310.json
+./memory/memory-backups/memory-v4-test-20260829-191410.json
+./memory/memory-backups/memory-v4-test-20260829-191412.json
+./memory/memory-backups/memory-v4-test-20260829-191428.json
+./memory/memory-backups/memory-v4-test-20260829-191543.json
+./memory/memory-backups/memory-v4-test-20260829-191625.json
+./memory/memory-backups/memory-v4-test-20260829-191828.json
+./memory/memory-backups/memory-v4-test-20260829-192216.json
+./memory/memory-backups/memory-v4-test-20260829-192300.json
+./memory/memory-backups/memory-v4-test-20260829-192602.json
+./memory/memory-backups/memory-v4-test-20260829-192610.json
+./memory/memory-backups/memory-v4-test-20260829-192711.json
+./memory/memory-backups/memory-v4-test-20260829-194329.json
+./memory/memory-backups/memory-v4-test-20260829-194536.json
+./memory/memory-backups/memory-v4-test-20260829-194543.json
+./memory/memory-backups/memory-v4-test-20260829-194601.json
+./memory/memory-backups/memory-v4-test-20260829-194605.json
+./memory/memory-backups/memory-v4-test-20260829-194630.json
+./memory/memory-backups/memory-v4-test-20260829-194646.json
+./memory/memory-backups/memory-v4-test-20260830-004639.json
+./memory/memory-backups/memory-v4-test-20260830-005112.json
+./memory/memory-backups/memory-v4-test-20260830-005208.json
+./memory/memory-backups/memory-v4-test-20260830-005212.json
+./memory/memory-backups/memory-v4-test-20260830-005727.json
+./memory/memory-backups/memory-v4-test-20260830-010230.json
+./memory/memory-backups/memory-v4-test-20260830-010733.json
+./memory/memory-backups/memory-v4-test-20260830-011517.json
+./memory/memory-backups/memory-v4-test-20260830-011808.json
+./memory/memory-backups/memory-v4-test-20260830-012116.json
+./memory/memory-backups/memory-v4-test-20260830-012821.json
+./memory/memory-backups/memory-v4-test-20260830-125142.json
+./memory/memory-backups/memory-v4-test-20260830-125438.json
+./memory/memory-backups/memory-v4-test-20260830-125610.json
+./memory/memory-backups/memory-v4-test-20260830-125706.json
+./memory/memory-backups/memory-v4-test-20260830-125723.json
+./memory/memory-backups/memory-v4-test-20260830-125810.json
+./memory/memory-backups/memory-v4-test-20260830-125907.json
+./memory/memory-v3-backup.json
+./memory/memory-v4-test.json
+./memory/memory.json
+./memory_manager-before-agentic-memory.py
+./memory_manager-v4-tested.py
+./memory_manager.py
+./tools/__init__.py
+./tools/__pycache__/__init__.cpython-314.pyc
+./tools/__pycache__/filesystem.cpython-314.pyc
+./tools/__pycache__/system.cpython-314.pyc
+./tools/filesystem.py
+./tools/system.py
+./workspace/test_alix.txt
+
+===== AGENT.PY =====
+import os
+import json
+import re
+import subprocess
+from pathlib import Path
+
+from dotenv import load_dotenv
+from openai import OpenAI
+import memory_manager
+
+# ============================================================
+# ALIX AI AGENT V3
+# Real Local Tool Calling
+# ============================================================
+
+BASE_DIR = Path.home() / "ALIX-Agent"
+REAL_MEMORY_FILE = BASE_DIR / "memory" / "memory.json"
+MEMORY_DIR = BASE_DIR / "memory"
+LOG_DIR = BASE_DIR / "logs"
+
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+load_dotenv(BASE_DIR / ".env")
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("OPENROUTER_API_KEY غير موجود في .env")
+
+client = OpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1"
+)
+
+MODEL = "openai/gpt-oss-120b"
+
+MAX_TOOL_ROUNDS = 8
+
+
+# ============================================================
+# MEMORY
+# ============================================================
+
+def load_memory():
+    return memory_manager.load_memory(REAL_MEMORY_FILE)
+
+
+def save_memory(memory):
+    memory_manager.save_memory(
+        memory,
+        REAL_MEMORY_FILE
+    )
+
+
+# ============================================================
+# SECURITY
+# ============================================================
+
+DANGEROUS_PATTERNS = [
+    "rm -rf",
+    "rm -r /",
+    "mkfs",
+    "dd if=",
+    "shutdown",
+    "reboot",
+    "poweroff",
+    "iptables -F",
+    "nft flush",
+    "chmod -R 777",
+    "chown -R",
+    "passwd",
+    "userdel",
+    "pkill -9",
+]
+
+
+def dangerous(command):
+
+    command_lower = command.lower()
+
+    return any(
+        pattern.lower() in command_lower
+        for pattern in DANGEROUS_PATTERNS
+    )
+
+
+# ============================================================
+# TOOL: LIST FILES
+# ============================================================
+
+def list_files(path="."):
+
+    try:
+        p = Path(path).expanduser()
+
+        if not p.exists():
+            return {
+                "success": False,
+                "error": "المسار غير موجود"
+            }
+
+        if p.is_file():
+            return {
+                "success": True,
+                "type": "file",
+                "path": str(p)
+            }
+
+        items = []
+
+        for item in sorted(p.iterdir()):
+
+            items.append({
+                "name": item.name,
+                "path": str(item),
+                "type": "directory" if item.is_dir() else "file"
+            })
+
+        return {
+            "success": True,
+            "path": str(p),
+            "items": items[:300]
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# TOOL: READ FILE
+# ============================================================
+
+def read_file(path, start_line=None, end_line=None):
+
+    try:
+
+        p = Path(path).expanduser()
+
+        if not p.exists():
+            return {
+                "success": False,
+                "error": "الملف غير موجود"
+            }
+
+        if not p.is_file():
+            return {
+                "success": False,
+                "error": "المسار ليس ملفًا"
+            }
+
+        size = p.stat().st_size
+
+        if size > 2_000_000:
+            return {
+                "success": False,
+                "error": "الملف أكبر من 2MB"
+            }
+
+        content = p.read_text(
+            encoding="utf-8",
+            errors="replace"
+        )
+
+        lines = content.splitlines()
+
+        total_lines = len(lines)
+
+        # ---------------------------------------------
+        # Optional line-range reading
+        # ---------------------------------------------
+
+        if start_line is not None or end_line is not None:
+
+            try:
+                start = int(start_line) if start_line is not None else 1
+                end = int(end_line) if end_line is not None else total_lines
+
+            except (TypeError, ValueError):
+                return {
+                    "success": False,
+                    "error": "start_line/end_line يجب أن يكونا أرقامًا"
+                }
+
+            if start < 1:
+                start = 1
+
+            if end < start:
+                return {
+                    "success": False,
+                    "error": "end_line يجب أن يكون أكبر أو مساويًا لـ start_line"
+                }
+
+            selected = lines[start - 1:end]
+
+            return {
+                "success": True,
+                "path": str(p),
+                "content": "\n".join(selected),
+                "start_line": start,
+                "end_line": min(end, total_lines),
+                "total_lines": total_lines
+            }
+
+        # ---------------------------------------------
+        # Full file read
+        # ---------------------------------------------
+
+        return {
+            "success": True,
+            "path": str(p),
+            "content": content[:40000],
+            "start_line": 1,
+            "end_line": min(total_lines, 40000),
+            "total_lines": total_lines
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# TOOL: SEARCH FILES
+# ============================================================
+
+def search_files(path, pattern):
+
+    try:
+
+        root = Path(path).expanduser()
+
+        if not root.exists():
+            return {
+                "success": False,
+                "error": "المجلد غير موجود"
+            }
+
+        matches = []
+
+        for p in root.rglob("*"):
+
+            if len(matches) >= 200:
+                break
+
+            if p.is_file() and pattern.lower() in p.name.lower():
+
+                matches.append(str(p))
+
+        return {
+            "success": True,
+            "matches": matches
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# TOOL: WRITE FILE
+# ============================================================
+
+def write_file(path, content):
+
+    p = Path(path).expanduser()
+
+    print("\n╭────────────────────────────────────╮")
+    print("│       FILE WRITE REQUEST           │")
+    print("╰────────────────────────────────────╯")
+
+    print(f"File: {p}")
+    print(f"Size: {len(content)} bytes")
+
+    answer = input(
+        "هل تسمح لـ ALIX بكتابة هذا الملف؟ [y/N]: "
+    ).strip().lower()
+
+    if answer != "y":
+
+        return {
+            "success": False,
+            "error": "المستخدم رفض كتابة الملف"
+        }
+
+    try:
+
+        p.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        p.write_text(
+            content,
+            encoding="utf-8"
+        )
+
+        return {
+            "success": True,
+            "message": f"تم حفظ الملف {p}"
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# TOOL: RUN TERMINAL
+# ============================================================
+
+def run_terminal(command):
+
+    print("\n╭────────────────────────────────────╮")
+    print("│       TERMINAL EXECUTION           │")
+    print("╰────────────────────────────────────╯")
+
+    print(command)
+
+    if dangerous(command):
+
+        print("\n🚨 تحذير: هذا الأمر مصنف كأمر خطير.")
+
+        answer = input(
+            "اكتب ALIX-YES للتأكيد: "
+        ).strip()
+
+        if answer != "ALIX-YES":
+
+            return {
+                "success": False,
+                "error": "تم رفض الأمر الخطير"
+            }
+
+    else:
+
+        answer = input(
+            "هل تسمح لـ ALIX بتنفيذ الأمر؟ [y/N]: "
+        ).strip().lower()
+
+        if answer != "y":
+
+            return {
+                "success": False,
+                "error": "المستخدم رفض التنفيذ"
+            }
+
+    try:
+
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        return {
+            "success": result.returncode == 0,
+            "return_code": result.returncode,
+            "stdout": result.stdout[:20000],
+            "stderr": result.stderr[:10000]
+        }
+
+    except subprocess.TimeoutExpired:
+
+        return {
+            "success": False,
+            "error": "انتهت مهلة التنفيذ"
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# TOOL SCHEMAS
+# ============================================================
+
+TOOLS = [
+
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": (
+                "List files and directories inside a path. "
+                "Use this when you need to inspect a project."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to inspect"
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": (
+                "Read the contents of a text file. "
+                "For large files, use start_line and end_line to read "
+                "the file in chunks. If total_lines is greater than "
+                "the returned range, continue reading subsequent ranges "
+                "until the required portion has been inspected."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "File path"
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "Optional first line to read"
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "Optional last line to read"
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "search_files",
+            "description": (
+                "Search for files by filename inside a directory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "pattern": {
+                        "type": "string"
+                    }
+                },
+                "required": ["path", "pattern"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": (
+                "Create or overwrite a text file. "
+                "Always requires user approval."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "save_fact",
+            "description": (
+                "Save or update a non-sensitive fact in ALIX persistent memory. "
+                "Do not use for API keys, passwords, tokens, secrets, or credentials."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    }
+                },
+                "required": ["key", "value"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "get_fact",
+            "description": (
+                "Retrieve a previously saved fact from ALIX persistent memory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    }
+                },
+                "required": ["key"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "save_preference",
+            "description": (
+                "Save or update a non-sensitive user preference in persistent memory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    }
+                },
+                "required": ["key", "value"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "get_preference",
+            "description": (
+                "Retrieve a previously saved preference from persistent memory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    }
+                },
+                "required": ["key"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_summary",
+            "description": (
+                "Return counts of facts, preferences, and history in persistent memory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "run_terminal",
+            "description": (
+                "Execute a Termux shell command. "
+                "Requires explicit user approval."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string"
+                    }
+                },
+                "required": ["command"]
+            }
+        }
+    }
+]
+
+
+# ============================================================
+# TOOL DISPATCHER
+# ============================================================
+
+def execute_tool(name, arguments):
+
+    if name == "list_files":
+        return list_files(
+            arguments.get("path", ".")
+        )
+
+    if name == "read_file":
+        return read_file(
+            arguments["path"],
+            arguments.get("start_line"),
+            arguments.get("end_line")
+        )
+
+    if name == "search_files":
+        return search_files(
+            arguments["path"],
+            arguments["pattern"]
+        )
+
+    if name == "write_file":
+        return write_file(
+            arguments["path"],
+            arguments["content"]
+        )
+
+    if name == "save_fact":
+        return {
+            "success": memory_manager.add_fact(
+                arguments["key"],
+                arguments["value"],
+                REAL_MEMORY_FILE
+            ),
+            "key": arguments["key"]
+        }
+
+    if name == "get_fact":
+        value = memory_manager.get_fact(
+            arguments["key"],
+            REAL_MEMORY_FILE
+        )
+
+        return {
+            "success": value is not None,
+            "key": arguments["key"],
+            "value": value
+        }
+
+    if name == "save_preference":
+        return {
+            "success": memory_manager.add_preference(
+                arguments["key"],
+                arguments["value"],
+                REAL_MEMORY_FILE
+            ),
+            "key": arguments["key"]
+        }
+
+    if name == "get_preference":
+        value = memory_manager.get_preference(
+            arguments["key"],
+            REAL_MEMORY_FILE
+        )
+
+        return {
+            "success": value is not None,
+            "key": arguments["key"],
+            "value": value
+        }
+
+    if name == "memory_summary":
+        return {
+            "success": True,
+            "summary": memory_manager.get_summary(
+                REAL_MEMORY_FILE
+            )
+        }
+
+    if name == "run_terminal":
+        return run_terminal(
+            arguments["command"]
+        )
+
+    return {
+        "success": False,
+        "error": f"Unknown tool: {name}"
+    }
+
+
+
+# ============================================================
+# INTELLIGENCE_LAYER_1
+# ALIX V4 — Intent Intelligence
+# ============================================================
+
+def classify_intent(user_input):
+    """
+    تصنيف أولي لطلب المستخدم.
+
+    لا يستخدم Terminal.
+    لا يستخدم أدوات خارجية.
+    لا ينفذ أي إجراء.
+
+    Returns:
+        chat
+        memory
+        file_read
+        file_search
+        file_write
+        terminal
+        investigation
+        planning
+    """
+
+    if not isinstance(user_input, str):
+        return "chat"
+
+    text = user_input.strip().lower()
+
+    if not text:
+        return "chat"
+
+    # -----------------------------
+    # Memory
+    # -----------------------------
+
+    memory_words = [
+        "ذاكرة",
+        "تفضيل",
+        "fact",
+        "preference",
+        "احفظ",
+        "تذكر",
+        "استرجع",
+        "ما قيمة",
+    ]
+
+    if any(word in text for word in memory_words):
+        return "memory"
+
+    # Explicit file-read detector
+    # This must run before generic chat classification.
+    if is_file_read_request(user_input):
+        return "file_read"
+
+    # -----------------------------
+    # File reading
+    # -----------------------------
+
+    read_words = [
+        "اقرأ الملف",
+        "اعرض الملف",
+        "اعرض أول",
+        "اقرأ أول",
+        "read file",
+        "show file",
+    ]
+
+    if any(word in text for word in read_words):
+        return "file_read"
+
+    # -----------------------------
+    # File search
+    # -----------------------------
+
+    search_words = [
+        "ابحث عن ملفات",
+        "ابحث في المشروع",
+        "ابحث عن",
+        "search files",
+        "find files",
+    ]
+
+    if any(word in text for word in search_words):
+        return "file_search"
+
+    # -----------------------------
+    # File modification
+    # -----------------------------
+
+    write_words = [
+        "أنشئ ملف",
+        "أنشئ سكريبت",
+        "عدّل الملف",
+        "عدل الملف",
+        "اكتب في الملف",
+        "غيّر الملف",
+        "تعديل الكود",
+        "write file",
+        "edit file",
+        "modify file",
+    ]
+
+    if any(word in text for word in write_words):
+        return "file_write"
+
+    # -----------------------------
+    # Terminal
+    # -----------------------------
+
+    terminal_words = [
+        "نفذ أمر",
+        "شغل الأمر",
+        "شغّل الأمر",
+        "terminal",
+        "ترمينال",
+        "bash",
+        "shell",
+        "command",
+    ]
+
+    if any(word in text for word in terminal_words):
+        return "terminal"
+
+    # -----------------------------
+    # Investigation / debugging
+    # -----------------------------
+
+    investigation_words = [
+        "اكتشف الخطأ",
+        "افحص المشروع",
+        "حلل المشروع",
+        "شخّص الخطأ",
+        "لماذا لا يعمل",
+        "ما سبب الخطأ",
+        "debug",
+        "diagnose",
+        "inspect project",
+    ]
+
+    if any(word in text for word in investigation_words):
+        return "investigation"
+
+    # -----------------------------
+    # Complex planning
+    # -----------------------------
+
+    planning_words = [
+        "خطط",
+        "خطة",
+        "خطوة بخطوة",
+        "نفذ المشروع",
+        "ابن المشروع",
+        "طوّر المشروع",
+        "طور المشروع",
+        "أضف نظام",
+        "صمم نظام",
+        "build",
+        "develop",
+        "implement",
+        "architecture",
+    ]
+
+    if any(word in text for word in planning_words):
+        return "planning"
+
+    return "chat"
+
+
+def intelligence_layer_1(user_input):
+    """
+    ALIX V4 Intelligence Layer 1.
+
+    يحلل الطلب فقط ويحدد:
+    - intent
+    - هل يحتاج تخطيطًا
+    - هل يحتاج أدوات
+
+    لا ينفذ أدوات ولا Terminal.
+    """
+
+    intent = classify_intent(user_input)
+
+    planning_intents = {
+        "planning",
+        "investigation",
+    }
+
+    tool_intents = {
+        "memory",
+        "file_read",
+        "file_search",
+        "file_write",
+        "terminal",
+        "investigation",
+    }
+
+    return {
+        "intent": intent,
+        "needs_plan": intent in planning_intents,
+        "needs_tools": intent in tool_intents,
+    }
+
+
+
+# ============================================================
+# ALIX V4 — INTELLIGENCE LAYER 2
+# TASK DECOMPOSITION + VERIFICATION
+# ============================================================
+
+def decompose_task(user_input, plan=None):
+    """
+    يحول المهمة إلى خطوات منطقية قابلة للتنفيذ.
+
+    لا يستخدم Terminal.
+    لا ينفذ أدوات.
+    لا يعدل الملفات.
+
+    إذا كان Planner موجودًا، يستخدم خطته كمرجع.
+    """
+
+    if not isinstance(user_input, str):
+        return []
+
+    text = user_input.strip()
+
+    if not text:
+        return []
+
+    steps = []
+
+    if isinstance(plan, list):
+        for item in plan:
+            if isinstance(item, str) and item.strip():
+                steps.append(item.strip())
+
+    if not steps:
+        intent = classify_intent(text)
+
+        if intent == "investigation":
+            steps = [
+                "جمع الأدلة من المشروع",
+                "تحديد مصدر المشكلة",
+                "اقتراح الإصلاح",
+                "التحقق من النتيجة",
+            ]
+
+        elif intent == "file_read":
+            steps = [
+                "تحديد الملف المطلوب",
+                "قراءة الملف",
+                "عرض المعلومات المطلوبة",
+            ]
+
+        elif intent == "file_search":
+            steps = [
+                "تحديد نطاق البحث",
+                "البحث عن الملفات المطلوبة",
+                "عرض النتائج",
+            ]
+
+        elif intent == "file_write":
+            steps = [
+                "فهم التعديل المطلوب",
+                "تحديد الملفات المتأثرة",
+                "طلب الموافقة قبل الكتابة",
+                "تنفيذ التعديل",
+                "التحقق من النتيجة",
+            ]
+
+        elif intent == "terminal":
+            steps = [
+                "فهم الأمر المطلوب",
+                "طلب الموافقة قبل التنفيذ",
+                "تنفيذ الأمر",
+                "التحقق من النتيجة",
+            ]
+
+        elif intent == "memory":
+            steps = [
+                "تحديد نوع عملية الذاكرة",
+                "استخدام أداة الذاكرة المناسبة",
+                "عرض النتيجة",
+            ]
+
+        else:
+            steps = [
+                "فهم طلب المستخدم",
+                "تقديم الإجابة المناسبة",
+            ]
+
+    return steps
+
+
+def verify_task_result(user_input, result, intent=None):
+    """
+    فحص بسيط للنتيجة النهائية.
+
+    لا ينفذ أدوات.
+    لا يستخدم Terminal.
+    لا يغير النتيجة.
+
+    Returns:
+        dict يحتوي على:
+        success
+        reason
+        needs_followup
+    """
+
+    if intent is None:
+        intent = classify_intent(user_input)
+
+    if result is None:
+        return {
+            "success": False,
+            "reason": "لم يتم الحصول على نتيجة.",
+            "needs_followup": True,
+        }
+
+    if not isinstance(result, str):
+        result_text = str(result)
+    else:
+        result_text = result
+
+    result_text = result_text.strip()
+
+    if not result_text:
+        return {
+            "success": False,
+            "reason": "النتيجة فارغة.",
+            "needs_followup": True,
+        }
+
+    error_markers = [
+        "❌",
+        "Traceback",
+        "Exception:",
+        "Error:",
+    ]
+
+    has_error = any(
+        marker in result_text
+        for marker in error_markers
+    )
+
+    if has_error:
+        return {
+            "success": False,
+            "reason": "النتيجة تحتوي على مؤشر خطأ.",
+            "needs_followup": True,
+        }
+
+    return {
+        "success": True,
+        "reason": "تم الحصول على نتيجة غير فارغة ولم يظهر مؤشر خطأ واضح.",
+        "needs_followup": False,
+    }
+
+
+
+# ============================================================
+# ALIX V4 — INTELLIGENCE LAYER 3
+# INTELLIGENT TASK ORCHESTRATOR
+# ============================================================
+
+def orchestrate_task(user_input):
+    """
+    يبني سياق تنفيذ موحد للمهمة.
+
+    هذه الطبقة لا تنفذ أدوات.
+    لا تستخدم Terminal.
+    لا تعدل الملفات.
+    لا تتجاوز نظام الموافقة.
+
+    Pipeline:
+
+        User Request
+             ↓
+        Classification
+             ↓
+        Planning (when needed)
+             ↓
+        Task Decomposition
+             ↓
+        Execution Guidance
+             ↓
+        Verification Guidance
+    """
+
+    if not isinstance(user_input, str):
+        return {
+            "success": False,
+            "intent": "chat",
+            "needs_tools": False,
+            "needs_plan": False,
+            "plan": [],
+            "steps": [],
+            "verification_required": False,
+            "reason": "طلب المستخدم غير صالح.",
+        }
+
+    text = user_input.strip()
+
+    if not text:
+        return {
+            "success": False,
+            "intent": "chat",
+            "needs_tools": False,
+            "needs_plan": False,
+            "plan": [],
+            "steps": [],
+            "verification_required": False,
+            "reason": "الطلب فارغ.",
+        }
+
+    # --------------------------------------------------------
+    # Layer 1 — Classification
+    # --------------------------------------------------------
+
+    intelligence = intelligence_layer_1(text)
+
+    intent = intelligence.get("intent", "chat")
+    needs_tools = bool(
+        intelligence.get("needs_tools", False)
+    )
+    needs_plan = bool(
+        intelligence.get("needs_plan", False)
+    )
+
+    # --------------------------------------------------------
+    # Layer 2 — Planning
+    # --------------------------------------------------------
+
+    plan = []
+
+    if needs_plan:
+        try:
+            generated_plan = create_plan(text)
+
+            if isinstance(generated_plan, list):
+                plan = [
+                    item.strip()
+                    for item in generated_plan
+                    if isinstance(item, str)
+                    and item.strip()
+                ]
+
+        except Exception:
+            plan = []
+
+    # --------------------------------------------------------
+    # Layer 2 — Task Decomposition
+    # --------------------------------------------------------
+
+    steps = decompose_task(
+        text,
+        plan if plan else None
+    )
+
+    # --------------------------------------------------------
+    # Verification policy
+    # --------------------------------------------------------
+
+    verification_required = bool(
+        needs_tools
+        or needs_plan
+        or intent in {
+            "file_read",
+            "file_search",
+            "file_write",
+            "investigation",
+            "memory",
+            "terminal",
+        }
+    )
+
+    # --------------------------------------------------------
+    # Execution guidance
+    # --------------------------------------------------------
+
+    if needs_tools:
+        execution_mode = "tool_required"
+    else:
+        execution_mode = "model_response"
+
+    # --------------------------------------------------------
+    # Safety guidance
+    # --------------------------------------------------------
+
+    approval_required = intent in {
+        "file_write",
+        "terminal",
+    }
+
+    return {
+        "success": True,
+        "intent": intent,
+        "needs_tools": needs_tools,
+        "needs_plan": needs_plan,
+        "plan": plan,
+        "steps": steps,
+        "execution_mode": execution_mode,
+        "verification_required": verification_required,
+        "approval_required": approval_required,
+    }
+
+
+
+
+# ============================================================
+# ALIX V4 — INTELLIGENCE LAYER 4
+# AUTONOMOUS INVESTIGATION ENGINE
+# ============================================================
+
+def investigate_project(user_input):
+    """
+    يبني خطة تحقيق آمنة للمشاكل البرمجية.
+
+    لا ينفذ Terminal.
+    لا يكتب الملفات.
+    لا يعدل المشروع.
+
+    الهدف:
+        1. فهم المشكلة
+        2. جمع الأدلة
+        3. تحديد الملفات المحتملة
+        4. فحص الكود
+        5. التحقق من السبب
+        6. اقتراح الإصلاح
+
+    التنفيذ الفعلي للأدوات يبقى داخل Agentic Loop.
+    """
+
+    if not isinstance(user_input, str):
+        return {
+            "success": False,
+            "type": "investigation",
+            "steps": [],
+            "evidence_targets": [],
+            "verification": [],
+        }
+
+    text = user_input.strip()
+
+    if not text:
+        return {
+            "success": False,
+            "type": "investigation",
+            "steps": [],
+            "evidence_targets": [],
+            "verification": [],
+        }
+
+    steps = [
+        "تحديد المشكلة والنتيجة المتوقعة",
+        "جمع الأدلة من المشروع قبل اقتراح أي تعديل",
+        "تحديد الملفات والدوال المرتبطة بالمشكلة",
+        "قراءة الكود المرتبط بالمشكلة",
+        "تحليل السبب المحتمل اعتمادًا على الأدلة",
+        "اقتراح إصلاح مناسب",
+        "التحقق من الإصلاح بعد الحصول على الموافقة",
+    ]
+
+    evidence_targets = [
+        "ملفات المشروع المرتبطة بالمشكلة",
+        "الدوال ذات الصلة",
+        "رسائل الخطأ إن وجدت",
+        "اختبارات المشروع",
+        "نتائج التحقق السابقة",
+    ]
+
+    verification = [
+        "Syntax validation",
+        "اختبار الوظيفة المتأثرة",
+        "مقارنة النتيجة بالنتيجة المتوقعة",
+    ]
+
+    # --------------------------------------------------------
+    # Detect investigation targets
+    # --------------------------------------------------------
+
+    targets = []
+
+    keywords = {
+        "run_agent": "run_agent",
+        "agent": "agent.py",
+        "memory": "memory_manager.py",
+        "ذاكرة": "memory_manager.py",
+        "planner": "create_plan",
+        "plan": "create_plan",
+        "tool": "execute_tool",
+        "أداة": "execute_tool",
+        "memory_manager": "memory_manager.py",
+        "agent.py": "agent.py",
+        "memory_manager.py": "memory_manager.py",
+    }
+
+    lowered = text.lower()
+
+    for keyword, target in keywords.items():
+        if keyword.lower() in lowered and target not in targets:
+            targets.append(target)
+
+    # --------------------------------------------------------
+    # Generic project investigation
+    # --------------------------------------------------------
+
+    generic_project_patterns = [
+        "افحص المشروع",
+        "حلل المشروع",
+        "تحليل المشروع",
+        "المشروع كامل",
+        "المشروع بالكامل",
+        "اكتشف سبب الخطأ",
+        "اكتشف الخطأ",
+        "find the error",
+        "analyze the project",
+        "inspect the project",
+        "debug the project",
+    ]
+
+    is_generic_project = any(
+        pattern.lower() in lowered
+        for pattern in generic_project_patterns
+    )
+
+    if is_generic_project:
+        project_targets = [
+            "PROJECT",
+            "agent.py",
+            "memory_manager.py",
+            "اختبارات المشروع",
+        ]
+
+        for target in project_targets:
+            if target not in targets:
+                targets.append(target)
+
+    # If investigation is requested but no specific target was detected,
+    # default to the whole project rather than returning an empty target list.
+    if not targets:
+        targets = [
+            "PROJECT",
+            "ملفات المشروع ذات الصلة",
+            "اختبارات المشروع",
+        ]
+
+    return {
+        "success": True,
+        "type": "investigation",
+        "query": text,
+        "steps": steps,
+        "evidence_targets": evidence_targets,
+        "detected_targets": targets,
+        "verification": verification,
+        "safe_mode": True,
+        "modification_allowed": False,
+    }
+
+
+
+# ============================================================
+# ALIX V4 — LAYER 5
+# EVIDENCE ENGINE CORE
+# ============================================================
+
+
+def resolve_evidence_targets(targets):
+    """
+    يحول أهداف التحقيق المنطقية إلى ملفات فعلية.
+
+    Read-only:
+    - لا Terminal
+    - لا كتابة ملفات
+    - لا تعديل المشروع
+    """
+
+    if not isinstance(targets, list):
+        return []
+
+    resolved = []
+
+    function_to_file = {
+        "run_agent": "agent.py",
+        "collect_evidence": "agent.py",
+        "analyze_evidence": "agent.py",
+        "classify_evidence": "agent.py",
+        "filter_evidence_context": "agent.py",
+        "investigate_project": "agent.py",
+        "orchestrate_task": "agent.py",
+        "execute_tool": "agent.py",
+        "create_plan": "agent.py",
+        "classify_intent": "agent.py",
+        "memory_manager": "memory_manager.py",
+    }
+
+    for target in targets:
+
+        if not isinstance(target, str):
+            continue
+
+        target = target.strip()
+
+        if not target:
+            continue
+
+        mapped = function_to_file.get(target)
+
+        if mapped:
+            target = mapped
+
+        elif target == "PROJECT":
+
+            for project_file in [
+                "agent.py",
+                "memory_manager.py",
+            ]:
+                if project_file not in resolved:
+                    resolved.append(project_file)
+
+            continue
+
+        elif not target.endswith(".py"):
+
+            candidate = f"{target}.py"
+
+            if (BASE_DIR / candidate).exists():
+                target = candidate
+
+        if target not in resolved:
+            resolved.append(target)
+
+    return resolved
+
+
+def collect_evidence(targets):
+    """
+    يجمع أدلة آمنة من ملفات المشروع.
+
+    القواعد:
+    - قراءة فقط.
+    - لا Terminal.
+    - لا كتابة.
+    - لا تعديل.
+    - كل دليل يحتوي على مصدر واضح.
+    """
+
+    if not isinstance(targets, list):
+        return {
+            "success": False,
+            "evidence": [],
+            "error": "targets يجب أن تكون قائمة"
+        }
+
+    evidence = []
+
+    for target in targets:
+
+        if not isinstance(target, str):
+            continue
+
+        target = target.strip()
+
+        if not target:
+            continue
+
+        # لا نحاول تنفيذ أي شيء.
+        # نقرأ الملفات الموجودة فقط.
+        path = Path(target).expanduser()
+
+        if not path.is_absolute():
+            path = BASE_DIR / path
+
+        if not path.exists():
+            evidence.append({
+                "type": "missing_target",
+                "target": target,
+                "success": False,
+                "message": "الهدف غير موجود"
+            })
+            continue
+
+        if not path.is_file():
+            evidence.append({
+                "type": "non_file_target",
+                "target": target,
+                "success": False,
+                "message": "الهدف ليس ملفًا"
+            })
+            continue
+
+        result = read_file(str(path))
+
+        if not result.get("success"):
+            evidence.append({
+                "type": "read_error",
+                "target": target,
+                "success": False,
+                "message": result.get(
+                    "error",
+                    "فشل في قراءة الملف"
+                )
+            })
+            continue
+
+        content = result.get("content", "")
+
+        evidence.append({
+            "type": "file_content",
+            "target": target,
+            "path": result.get("path"),
+            "success": True,
+            "content": content,
+            "total_lines": result.get("total_lines"),
+        })
+
+    return {
+        "success": True,
+        "count": len(evidence),
+        "evidence": evidence,
+    }
+
+
+
+# ============================================================
+# ALIX V4 — LAYER 5
+# EVIDENCE ANALYZER
+# ============================================================
+
+def analyze_evidence(evidence_result):
+    """
+    يحلل الأدلة التي تم جمعها مسبقًا.
+
+    لا يقرأ ملفات جديدة.
+    لا يستخدم Terminal.
+    لا يكتب الملفات.
+    لا يعدل المشروع.
+
+    النتيجة:
+        file
+        line
+        evidence
+        reason
+        confidence
+    """
+
+    if not isinstance(evidence_result, dict):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "evidence_result يجب أن يكون dict"
+        }
+
+    if not evidence_result.get("success"):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "فشل جمع الأدلة"
+        }
+
+    findings = []
+
+    evidence_items = evidence_result.get(
+        "evidence",
+        []
+    )
+
+    if not isinstance(evidence_items, list):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "evidence يجب أن تكون قائمة"
+        }
+
+    suspicious_patterns = [
+        (
+            "SyntaxError",
+            "وجود مؤشر SyntaxError في الملف",
+            "high"
+        ),
+        (
+            "Traceback",
+            "وجود Traceback في محتوى الملف",
+            "high"
+        ),
+        (
+            "TODO",
+            "وجود TODO قد يشير إلى عمل غير مكتمل",
+            "low"
+        ),
+        (
+            "FIXME",
+            "وجود FIXME قد يشير إلى مشكلة معروفة",
+            "medium"
+        ),
+        (
+            "except Exception:",
+            "استخدام معالجة عامة للاستثناءات؛ قد تخفي أخطاء حقيقية",
+            "low"
+        ),
+    ]
+
+    for item in evidence_items:
+
+        if not isinstance(item, dict):
+            continue
+
+        if item.get("type") != "file_content":
+            continue
+
+        if not item.get("success"):
+            continue
+
+        file_path = item.get("path") or item.get("target")
+        content = item.get("content", "")
+
+        if not isinstance(content, str):
+            continue
+
+        lines = content.splitlines()
+
+        for line_number, line in enumerate(lines, 1):
+
+            for pattern, reason, confidence in suspicious_patterns:
+
+                if pattern.lower() in line.lower():
+
+                    findings.append({
+                        "file": file_path,
+                        "line": line_number,
+                        "evidence": line.strip(),
+                        "pattern": pattern,
+                        "reason": reason,
+                        "confidence": confidence,
+                    })
+
+    return {
+        "success": True,
+        "count": len(findings),
+        "findings": findings,
+    }
+
+
+
+# ============================================================
+# ALIX V4 — LAYER 5
+# EVIDENCE CLASSIFIER
+# ============================================================
+
+def classify_evidence(analysis_result):
+    """
+    يصنف Findings الموجودة مسبقًا.
+
+    التصنيفات:
+        confirmed
+        suspicious
+        informational
+
+    لا يقرأ ملفات جديدة.
+    لا يستخدم Terminal.
+    لا يعدل المشروع.
+    """
+
+    if not isinstance(analysis_result, dict):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "analysis_result يجب أن يكون dict"
+        }
+
+    if not analysis_result.get("success"):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "تحليل الأدلة غير ناجح"
+        }
+
+    findings = analysis_result.get("findings", [])
+
+    if not isinstance(findings, list):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "findings يجب أن تكون قائمة"
+        }
+
+    classified = []
+
+    for finding in findings:
+
+        if not isinstance(finding, dict):
+            continue
+
+        item = dict(finding)
+
+        pattern = str(
+            item.get("pattern", "")
+        ).lower()
+
+        evidence = str(
+            item.get("evidence", "")
+        ).strip()
+
+        confidence = str(
+            item.get("confidence", "")
+        ).lower()
+
+        # ----------------------------------------------------
+        # Default classification
+        # ----------------------------------------------------
+
+        classification = "informational"
+        reason = "الدليل لا يثبت وجود خطأ بحد ذاته."
+
+        # ----------------------------------------------------
+        # Explicit error indicators
+        # ----------------------------------------------------
+
+        if pattern == "syntaxerror":
+            classification = "suspicious"
+            reason = (
+                "تم العثور على كلمة SyntaxError، "
+                "لكن وجودها داخل النص لا يثبت وجود خطأ نحوي."
+            )
+
+        elif pattern == "traceback":
+            classification = "suspicious"
+            reason = (
+                "تم العثور على كلمة Traceback، "
+                "ويجب التحقق من السياق لمعرفة هل هي نتيجة خطأ فعلية."
+            )
+
+        elif pattern == "fixme":
+            classification = "suspicious"
+            reason = (
+                "FIXME يشير إلى نقطة تحتاج مراجعة، "
+                "لكنه لا يثبت وجود خلل."
+            )
+
+        elif pattern == "todo":
+            classification = "informational"
+            reason = (
+                "TODO يشير إلى عمل مستقبلي أو غير مكتمل، "
+                "وليس بالضرورة خطأ."
+            )
+
+        elif pattern == "except exception:":
+            classification = "informational"
+            reason = (
+                "المعالجة العامة للاستثناءات قد تكون مقصودة، "
+                "لكنها تستحق المراجعة حسب السياق."
+            )
+
+        # ----------------------------------------------------
+        # Strong evidence requires explicit runtime/error data.
+        # The current Layer 5 engine does not execute tests,
+        # therefore it must NOT claim a confirmed bug.
+        # ----------------------------------------------------
+
+        if confidence == "high":
+            if classification == "confirmed":
+                pass
+            else:
+                classification = "suspicious"
+
+        item["classification"] = classification
+        item["classification_reason"] = reason
+
+        classified.append(item)
+
+    counts = {
+        "confirmed": 0,
+        "suspicious": 0,
+        "informational": 0,
+    }
+
+    for item in classified:
+        category = item.get("classification")
+
+        if category in counts:
+            counts[category] += 1
+
+    return {
+        "success": True,
+        "count": len(classified),
+        "counts": counts,
+        "findings": classified,
+    }
+
+
+
+# ============================================================
+# ALIX V4 - LAYER 5
+# CONTEXT-AWARE EVIDENCE FILTER
+# ============================================================
+
+def filter_evidence_context(classified_result):
+    """
+    Reduce false positives in Layer 5 evidence.
+
+    Read-only.
+    No Terminal.
+    No file modification.
+    """
+
+    if not isinstance(classified_result, dict):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "classified_result must be dict"
+        }
+
+    if not classified_result.get("success"):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "classification failed"
+        }
+
+    findings = classified_result.get("findings", [])
+
+    if not isinstance(findings, list):
+        return {
+            "success": False,
+            "findings": [],
+            "error": "findings must be a list"
+        }
+
+    filtered = []
+
+    for finding in findings:
+
+        if not isinstance(finding, dict):
+            continue
+
+        item = dict(finding)
+
+        evidence = str(item.get("evidence", ""))
+        pattern = str(item.get("pattern", "")).lower()
+
+        context = "code"
+
+        if evidence.lstrip().startswith("#"):
+            context = "comment"
+
+        elif "assert " in evidence or "print(" in evidence:
+            context = "test_or_diagnostic"
+
+        elif "TODO" in evidence or "FIXME" in evidence:
+            context = "annotation"
+
+        elif pattern in ("traceback", "syntaxerror"):
+            context = "error_indicator"
+
+        if pattern in ("traceback", "syntaxerror", "fixme", "todo"):
+            if context in (
+                "comment",
+                "test_or_diagnostic",
+                "annotation"
+            ):
+                item["classification"] = "informational"
+                item["confidence"] = "low"
+                item["classification_reason"] = (
+                    "المؤشر ظهر في سياق نصي أو اختباري، "
+                    "وليس دليلًا مباشرًا على Bug."
+                )
+
+        if item.get("classification") == "confirmed":
+            item["classification"] = "suspicious"
+            item["confidence"] = "low"
+            item["classification_reason"] = (
+                "لا يتم تأكيد Bug دون تحقق مستقل."
+            )
+
+        item["context"] = context
+
+        filtered.append(item)
+
+    counts = {
+        "confirmed": 0,
+        "suspicious": 0,
+        "informational": 0
+    }
+
+    for item in filtered:
+        category = item.get("classification")
+
+        if category in counts:
+            counts[category] += 1
+
+    return {
+        "success": True,
+        "count": len(filtered),
+        "counts": counts,
+        "findings": filtered
+    }
+
+
+# ============================================================
+# AGENT LOOP
+# ============================================================
+
+
+# ============================================================
+# ALIX V4 — LAYER 6.1 AGENT CONTEXT BRIDGE
+# ============================================================
+
+# ============================================================
+# ALIX V4 — LAYER 6.1 AGENT CONTEXT BRIDGE
+# ============================================================
+
+def build_agent_verification_context(diagnosis_result):
+    """
+    يحول نتيجة Layer 6 إلى سياق آمن يمكن للـAgent فهمه.
+
+    Read-only.
+    No Terminal.
+    No file modification.
+    لا يؤكد وجود Bug.
+    """
+
+    bridge = build_verification_bridge(diagnosis_result)
+
+    if not bridge.get("success"):
+        return {
+            "success": False,
+            "context": "",
+            "error": bridge.get(
+                "error",
+                "فشل بناء Verification Bridge"
+            )
+        }
+
+    items = bridge.get("verification_items", [])
+
+    lines = [
+        "VERIFICATION STATUS: UNVERIFIED",
+        "RULE: لا تعتبر أي فرضية Bug مؤكدًا بدون دليل مستقل.",
+        "",
+        "VERIFICATION REQUIREMENTS:"
+    ]
+
+    for item in items:
+
+        if not isinstance(item, dict):
+            continue
+
+        item_id = item.get("id", "?")
+        hypothesis = str(
+            item.get("hypothesis", "")
+        ).strip()
+
+        required = str(
+            item.get("required_evidence", "")
+        ).strip()
+
+        method = str(
+            item.get("verification_method", "")
+        ).strip()
+
+        status = str(
+            item.get("status", "unverified")
+        ).strip()
+
+        lines.extend([
+            f"[{item_id}] Hypothesis: {hypothesis}",
+            f"    Required evidence: {required}",
+            f"    Verification method: {method}",
+            f"    Status: {status}",
+            "    Confirmed bug: NO",
+            ""
+        ])
+
+    return {
+        "success": True,
+        "context": "\n".join(lines).strip(),
+        "verification_items": items,
+        "safety": bridge.get("safety", {}),
+        "policy": bridge.get("policy", {}),
+    }
+
+
+def run_agent(user_input):
+
+    # ========================================================
+    # INTELLIGENCE_CONTEXT_V1
+    # ========================================================
+    # تحليل الطلب قبل بدء Agentic Loop.
+    # لا ينفذ أدوات ولا Terminal.
+    # ========================================================
+
+    try:
+        intelligence = intelligence_layer_1(user_input)
+    except Exception as e:
+        print(f"⚠️ Intelligence warning: {e}")
+        intelligence = {
+            "intent": "chat",
+            "needs_plan": False,
+            "needs_tools": False,
+        }
+
+    memory = load_memory()
+
+
+    # ========================================================
+    # V4 PLANNER CONTEXT
+    # ========================================================
+
+    try:
+        execution_plan = create_plan(user_input)
+    except Exception as e:
+        execution_plan = []
+        print(f"⚠️ Planner warning: {e}")
+
+    messages = [
+
+        {
+            "role": "system",
+            "content": """
+أنت ALIX V3، AI Agent شخصي يعمل داخل Termux على Android.
+
+أنت قادر على استخدام أدوات محلية حقيقية.
+
+الأدوات المتاحة:
+
+- list_files
+- read_file
+- search_files
+- write_file
+- run_terminal
+- save_fact
+- get_fact
+- save_preference
+- get_preference
+- memory_summary
+
+قواعد مهمة:
+
+1. استخدم الأدوات عندما تكون ضرورية.
+2. لا تدّعي أنك قرأت ملفًا إلا إذا استخدمت read_file.
+2.1. إذا كانت read_file تُرجع total_lines أكبر من end_line الحالي، فالملف غير مقروء بالكامل.
+2.2. عند فحص ملف محدد، يجب متابعة read_file باستخدام start_line و end_line حتى يصبح end_line مساويًا لـ total_lines قبل إصدار أي حكم عن الملف بالكامل.
+2.3. لا تقل "قرأت الملف بالكامل" أو "الملف ينتهي عند..." إلا بعد إثبات أن end_line >= total_lines.
+2.4. إذا لم تكفِ جولات الأدوات للوصول إلى نهاية الملف، صرّح بأن الفحص غير مكتمل بدل اختراع نتيجة أو افتراض نهاية الملف.
+3. لا تدّعي أنك نفذت أمرًا إلا إذا أعادت أداة run_terminal نتيجة.
+4. قبل تعديل الملفات سيطلب البرنامج موافقة المستخدم.
+5. قبل تنفيذ أوامر Terminal سيطلب البرنامج موافقة المستخدم.
+6. لا تحاول تجاوز نظام الموافقة.
+7. لا تكشف API keys أو محتويات ملفات الأسرار.
+8. لا تقرأ .env إلا إذا طلب المستخدم ذلك صراحة.
+9. إذا وجدت خطأ في مشروع، اجمع الأدلة أولًا ثم اقترح الإصلاح.
+10. استخدم العربية عندما يتحدث المستخدم بالعربية.
+11. لا تنفذ إجراءات خطيرة دون التأكيد الإضافي.
+12. عند طلب المستخدم حفظ Fact، استخدم save_fact فعليًا.
+13. عند طلب المستخدم حفظ Preference، استخدم save_preference فعليًا.
+14. لا تقل إن معلومة تم حفظها في الذاكرة إلا إذا أعادت أداة الذاكرة success=true.
+15. عند طلب استرجاع Fact أو Preference، استخدم أداة الذاكرة المناسبة بدل التخمين.
+16. لا تحفظ API keys أو كلمات المرور أو tokens أو الأسرار؛ أدوات الذاكرة تمنع ذلك.
+17. الذاكرة الدائمة موجودة في memory.json وتدار بواسطة memory_manager.py.
+"""
+        }
+    ]
+
+    # ========================================================
+    # V4 PLANNER CONTEXT
+    # ========================================================
+
+    if execution_plan:
+        messages.append({
+            "role": "system",
+            "content": (
+                "هذه خطة أولية أنشأها Planner V4. "
+                "استخدمها كإرشاد فقط، ولا تعتبرها تنفيذًا للأدوات.\n\n"
+                "PLAN:\n"
+                + "\n".join(
+                    f"{i}. {step}"
+                    for i, step in enumerate(execution_plan, 1)
+                )
+            )
+        })
+
+    # ========================================================
+    # INTELLIGENCE CONTEXT V1
+    # ========================================================
+
+    messages.append({
+        "role": "system",
+        "content": (
+            "ALIX Intelligence Context:\n"
+            f"Intent: {intelligence.get('intent', 'chat')}\n"
+            f"Needs tools: {intelligence.get('needs_tools', False)}\n"
+            f"Needs plan: {intelligence.get('needs_plan', False)}\n\n"
+            "استخدم هذا السياق كمساعدة فقط. "
+            "لا تستخدم أداة إلا إذا كانت ضرورية فعلًا لطلب المستخدم."
+        )
+    })
+
+    # ========================================================
+    # MEMORY V4 CONTEXT
+    # ========================================================
+
+    facts = memory.get("facts", [])
+    preferences = memory.get("preferences", [])
+
+    memory_context = []
+
+    if facts:
+        memory_context.append("FACTS:")
+        for fact in facts:
+            if isinstance(fact, dict):
+                key = fact.get("key", "")
+                value = fact.get("value", "")
+                memory_context.append(
+                    f"- {key}: {value}"
+                )
+
+    if preferences:
+        memory_context.append("PREFERENCES:")
+        for preference in preferences:
+            if isinstance(preference, dict):
+                key = preference.get("key", "")
+                value = preference.get("value", "")
+                memory_context.append(
+                    f"- {key}: {value}"
+                )
+
+    if memory_context:
+        messages.append({
+            "role": "system",
+            "content": (
+                "هذه معلومات الذاكرة الدائمة الموثوقة لـ ALIX. "
+                "استخدمها كمرجع، ولا تخترع معلومات غير موجودة فيها.\n\n"
+                + "\n".join(memory_context)
+            )
+        })
+
+    # Add recent memory
+    for item in memory["history"][-8:]:
+
+        messages.append({
+            "role": "user",
+            "content": item.get("user", "")
+        })
+
+        messages.append({
+            "role": "assistant",
+            "content": item.get("assistant", "")
+        })
+
+    # ========================================================
+    # ALIX V4 — INTELLIGENCE LAYER 3 CONTEXT
+    # ========================================================
+
+    orchestrator_context = orchestrate_task(user_input)
+
+    if orchestrator_context.get("success"):
+        messages.append({
+            "role": "system",
+            "content": (
+                "سياق ALIX V4 الداخلي للمهمة الحالية. "
+                "استخدمه لتحديد طريقة العمل، ولا تعرضه للمستخدم "
+                "إلا إذا كان ذلك ضروريًا.\n\n"
+                f"INTENT: {orchestrator_context.get('intent')}\n"
+                f"NEEDS_TOOLS: {orchestrator_context.get('needs_tools')}\n"
+                f"NEEDS_PLAN: {orchestrator_context.get('needs_plan')}\n"
+                f"EXECUTION_MODE: {orchestrator_context.get('execution_mode')}\n"
+                f"VERIFICATION_REQUIRED: "
+                f"{orchestrator_context.get('verification_required')}\n"
+                f"APPROVAL_REQUIRED: "
+                f"{orchestrator_context.get('approval_required')}\n"
+                f"PLAN: {orchestrator_context.get('plan', [])}\n"
+                f"STEPS: {orchestrator_context.get('steps', [])}"
+            )
+        })
+
+    # ========================================================
+    # ALIX V4 — LAYER 6.1 VERIFICATION CONTEXT
+    # ========================================================
+    # Diagnosis → Verification Bridge → Agent Context
+    # Read-only. No Terminal. No file modification.
+    # Hypotheses remain UNVERIFIED until independent evidence exists.
+    # ========================================================
+
+    try:
+        investigation_result = investigate_project(user_input)
+
+        evidence_result = None
+        analysis_result = None
+        classified_result = None
+        filtered_result = None
+        diagnosis_result = None
+        verification_context = None
+
+        if investigation_result.get("success"):
+            targets = investigation_result.get(
+                "detected_targets",
+                []
+            )
+
+            evidence_result = collect_evidence(targets)
+
+            if isinstance(evidence_result, dict) and evidence_result.get("success"):
+                analysis_result = analyze_evidence(
+                    evidence_result
+                )
+
+            if isinstance(analysis_result, dict) and analysis_result.get("success"):
+                classified_result = classify_evidence(
+                    analysis_result
+                )
+
+            if isinstance(classified_result, dict) and classified_result.get("success"):
+                filtered_result = filter_evidence_context(
+                    classified_result
+                )
+
+            if isinstance(filtered_result, dict) and filtered_result.get("success"):
+                diagnosis_result = diagnose_evidence(
+                    filtered_result
+                )
+
+            if isinstance(diagnosis_result, dict) and diagnosis_result.get("success"):
+                verification_context = build_agent_verification_context(
+                    diagnosis_result
+                )
+
+        if (
+            isinstance(verification_context, dict)
+            and verification_context.get("success")
+        ):
+            messages.append({
+                "role": "system",
+                "content": (
+                    "ALIX V4 VERIFICATION CONTEXT — INTERNAL ONLY.\n"
+                    "لا تعتبر أي فرضية Bug مؤكدًا بدون دليل مستقل.\n\n"
+                    + verification_context.get("context", "")
+                )
+            })
+
+    except Exception as e:
+        print(f"⚠️ Verification context warning: {e}")
+
+    messages.append({
+        "role": "user",
+        "content": user_input
+    })
+
+
+
+# ============================================================
+# AUTO MEMORY — AGENTIC MEMORY V5
+# ============================================================
+
+    # ========================================================
+    # AGENTIC LOOP
+    # ========================================================
+
+    for round_number in range(MAX_TOOL_ROUNDS):
+
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                reasoning_effort="medium",
+                max_completion_tokens=6000
+            )
+
+        except Exception as e:
+            return f"❌ OpenRouter API error:\n{e}"
+
+        message = response.choices[0].message
+
+        # ----------------------------------------------------
+        # No tool call = final answer
+        # ----------------------------------------------------
+
+        if not message.tool_calls:
+            if message.content:
+                return message.content
+
+            # Empty model response: retry within the existing agent loop.
+            messages.append({
+                "role": "system",
+                "content": (
+                    "لم تُرجع الاستجابة السابقة محتوى أو استدعاء أداة. "
+                    "تابع المهمة الحالية، واستخدم الأدوات اللازمة إن كانت مطلوبة، "
+                    "أو قدّم إجابة نهائية إذا كانت الأدلة المتاحة كافية."
+                )
+            })
+            continue
+
+        # ----------------------------------------------------
+        # Add assistant tool-call message
+        # ----------------------------------------------------
+
+        messages.append(message)
+
+        # ----------------------------------------------------
+        # Execute requested tools
+        # ----------------------------------------------------
+
+        for tool_call in message.tool_calls:
+
+            name = tool_call.function.name
+
+            try:
+                arguments = json.loads(
+                    tool_call.function.arguments
+                )
+
+            except json.JSONDecodeError:
+
+                result = {
+                    "success": False,
+                    "error": "Invalid JSON tool arguments"
+                }
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": name,
+                    "content": json.dumps(
+                        result,
+                        ensure_ascii=False
+                    )
+                })
+
+                continue
+
+            print(f"\n🔧 ALIX يستخدم الأداة: {name}")
+
+            result = execute_tool(
+                name,
+                arguments
+            )
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": name,
+                "content": json.dumps(
+                    result,
+                    ensure_ascii=False
+                )
+            })
+
+    # ========================================================
+    # FINAL SYNTHESIS — NO TOOLS
+    # ========================================================
+    # انتهت جولات الأدوات؛ امنح النموذج فرصة أخيرة
+    # لتحليل الأدلة الموجودة وإنتاج الإجابة النهائية.
+    try:
+        final_messages = list(messages)
+
+        final_messages.append({
+            "role": "system",
+            "content": (
+                "انتهت جولات الأدوات المتاحة. "
+                "لا تطلب أي أدوات إضافية الآن. "
+                "حلل جميع نتائج الأدوات الموجودة في المحادثة "
+                "وقدّم إجابة نهائية مباشرة للمستخدم. "
+                "إذا لم تكن الأدلة كافية، اذكر بوضوح ما تم إثباته "
+                "وما بقي غير مؤكد. "
+                "لا تدّع تنفيذ شيء لم يظهر في نتائج الأدوات."
+            )
+        })
+
+        final_response = client.chat.completions.create(
+            model=MODEL,
+            messages=final_messages,
+            tool_choice="none",
+            reasoning_effort="medium",
+            max_completion_tokens=6000
+        )
+
+        final_message = final_response.choices[0].message
+
+        return (
+            final_message.content
+            or "⚠️ انتهت جولات الأدوات ولم يتمكن النموذج من إنتاج إجابة نهائية."
+        )
+
+    except Exception as e:
+        return (
+            "⚠️ انتهت جولات الأدوات.\n"
+            f"تعذر إنشاء الإجابة النهائية: {e}"
+        )
+
+
+
+# ============================================================
+# ALIX V4 — SAFE PLANNER
+# ============================================================
+
+
+# ============================================================
+# READ_FILE_INTENT — Intelligence Layer
+# ============================================================
+
+READ_FILE_INTENT = [
+    r"\bاقرأ\s+(?:ملف\s+)?[\w./-]+",
+    r"\bقراءة\s+(?:ملف\s+)?[\w./-]+",
+    r"\bاعرض\s+(?:محتوى\s+)?(?:ملف\s+)?[\w./-]+",
+    r"\bshow\s+(?:the\s+)?(?:file\s+)?[\w./-]+",
+    r"\bread\s+(?:the\s+)?(?:file\s+)?[\w./-]+",
+]
+
+def is_file_read_request(user_input):
+    """Detect explicit requests to read/display a file."""
+    if not isinstance(user_input, str):
+        return False
+
+    text = user_input.strip()
+
+    return any(
+        re.search(pattern, text, re.IGNORECASE)
+        for pattern in READ_FILE_INTENT
+    )
+
+def create_plan(user_input):
+    """
+    Creates a simple execution plan without executing tools.
+
+    This function is intentionally isolated from the Agentic Loop.
+    It only analyzes the request and returns ordered steps.
+    """
+
+    if not isinstance(user_input, str):
+        return []
+
+    text = user_input.strip()
+
+    if not text:
+        return []
+
+    steps = []
+
+    # File/project inspection
+    if any(word in text.lower() for word in [
+        "افحص", "تحقق", "inspect", "check", "analyze", "حلل"
+    ]):
+        steps.append("فحص المشروع وجمع الأدلة أولًا")
+
+    # Reading
+    if any(word in text.lower() for word in [
+        "اقرأ", "قراءة", "read", "عرض الملف"
+    ]):
+        steps.append("قراءة الملفات المطلوبة باستخدام read_file")
+
+    # Searching
+    if any(word in text.lower() for word in [
+        "ابحث", "بحث", "search", "find"
+    ]):
+        steps.append("البحث عن الملفات أو الأنماط المطلوبة")
+
+    # Writing/modification
+    if any(word in text.lower() for word in [
+        "أنشئ", "اكتب", "عدّل", "تعديل", "اصلح", "إصلاح",
+        "create", "write", "modify", "fix"
+    ]):
+        steps.append("اقتراح أو تنفيذ التعديل بعد الحصول على الموافقة المطلوبة")
+
+    # Terminal
+    if any(word in text.lower() for word in [
+        "terminal", "ترمنل", "أمر", "command"
+    ]):
+        steps.append("تنفيذ أمر Terminal فقط بعد موافقة المستخدم")
+
+    # Generic plan
+    if not steps:
+        steps.append("تحليل الطلب وتحديد الأداة المناسبة")
+
+    steps.append("التحقق من النتيجة قبل تقديم الإجابة النهائية")
+
+    return steps
+
+    # ========================================================
+    # AGENTIC LOOP
+    # ========================================================
+
+def detect_memory_intent(user_input):
+    """
+    Detect durable user preferences/facts without using Terminal.
+    Returns None, or:
+    {"type": "preference", "key": ..., "value": ...}
+    {"type": "fact", "key": ..., "value": ...}
+    """
+
+    if not isinstance(user_input, str):
+        return None
+
+    text = user_input.strip()
+
+    if not text:
+        return None
+
+    # Explicitly durable preference language.
+    preference_patterns = [
+        (r"من الآن فصاعدًا.*?أريدك أن (.+)", "user_preference"),
+        (r"من الآن فصاعدًا.*?أفضل أن (.+)", "user_preference"),
+        (r"دائمًا.*?أريدك أن (.+)", "user_preference"),
+        (r"always.*?prefer (.+)", "user_preference"),
+        (r"from now on.*?I want you to (.+)", "user_preference"),
+    ]
+
+    for pattern, key in preference_patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            value = m.group(1).strip()
+
+            if memory_manager.contains_secret(value):
+                return None
+
+            return {
+                "type": "preference",
+                "key": key,
+                "value": value
+            }
+
+    return None
+
+
+def auto_save_memory(user_input):
+    """
+    Save only clearly durable preferences.
+    Never saves secrets.
+    """
+    intent = detect_memory_intent(user_input)
+
+    if not intent:
+        return False
+
+    if intent["type"] == "preference":
+        return memory_manager.add_preference(
+            intent["key"],
+            intent["value"],
+            REAL_MEMORY_FILE
+        )
+
+    if intent["type"] == "fact":
+        return memory_manager.add_fact(
+            intent["key"],
+            intent["value"],
+            REAL_MEMORY_FILE
+        )
+
+    return False
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    print("""
+╔══════════════════════════════════════╗
+║          ALIX AI AGENT V3            ║
+║       REAL TOOL-CALLING AGENT        ║
+╠══════════════════════════════════════╣
+║ OpenRouter GPT-OSS-120B                    ║
+║ Local File Tools                     ║
+║ Local Terminal Tool                  ║
+║ Persistent Memory                    ║
+║ Security Confirmation                ║
+╚══════════════════════════════════════╝
+
+ALIX يستطيع الآن اختيار الأدوات بنفسه.
+
+أمثلة:
+
+"اعرض لي ملفات هذا المشروع"
+
+"اقرأ main.py"
+
+"ابحث عن ملفات Python"
+
+"افحص المشروع واكتشف الخطأ"
+
+"أنشئ ملف test.py"
+
+سيطلب ALIX موافقتك قبل الكتابة أو تنفيذ أوامر Terminal.
+
+للخروج:
+exit
+""")
+
+
+    while True:
+
+        try:
+
+            user_input = input("\n👤 أنت: ").strip()
+
+        except KeyboardInterrupt:
+
+            print("\n👋 تم إيقاف ALIX.")
+            break
+
+        except EOFError:
+
+            break
+
+
+        if not user_input:
+            continue
+
+
+        if user_input.lower() in [
+            "exit",
+            "quit",
+            "خروج"
+        ]:
+
+            print("\n👋 إلى اللقاء.")
+            break
+
+
+        print("\n⏳ ALIX يفكر...")
+
+
+        response = run_agent(
+            user_input
+        )
+
+
+        print("\n🤖 ALIX:")
+        print(response)
+
+
+        memory_manager.add_history(
+            user_input,
+            response,
+            REAL_MEMORY_FILE
+        )
+
+
+
+# ============================================================
+# ALIX V4 — LAYER 6 DIAGNOSIS ENGINE
+# ============================================================
+
+# ============================================================
+# ALIX V4 — LAYER 6 DIAGNOSIS ENGINE
+# ============================================================
+# Diagnosis only.
+# Read-only.
+# No Terminal.
+# No file modification.
+# No claim of confirmed bugs without independent verification.
+# ============================================================
+
+def diagnose_evidence(filtered_result):
+    """
+    يحول الأدلة المفلترة من Layer 5 إلى تشخيص منظم.
+
+    Layer 6 لا تقرأ ملفات جديدة.
+    Layer 6 لا تستخدم Terminal.
+    Layer 6 لا تعدل المشروع.
+
+    Returns:
+        success
+        diagnosis
+        hypotheses
+        missing_evidence
+        verification_plan
+        safety
+    """
+
+    if not isinstance(filtered_result, dict):
+        return {
+            "success": False,
+            "diagnosis": "مدخل Layer 6 غير صالح.",
+            "hypotheses": [],
+            "missing_evidence": [],
+            "verification_plan": [],
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+            },
+        }
+
+    if not filtered_result.get("success"):
+        return {
+            "success": False,
+            "diagnosis": "فشل الحصول على الأدلة المفلترة.",
+            "hypotheses": [],
+            "missing_evidence": [],
+            "verification_plan": [],
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+            },
+        }
+
+    findings = filtered_result.get("findings", [])
+
+    if not isinstance(findings, list):
+        return {
+            "success": False,
+            "diagnosis": "findings يجب أن تكون قائمة.",
+            "hypotheses": [],
+            "missing_evidence": [],
+            "verification_plan": [],
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+            },
+        }
+
+    hypotheses = []
+    missing_evidence = []
+    verification_plan = []
+
+    suspicious = []
+    informational = []
+
+    for finding in findings:
+
+        if not isinstance(finding, dict):
+            continue
+
+        classification = str(
+            finding.get("classification", "")
+        ).lower()
+
+        pattern = str(
+            finding.get("pattern", "")
+        )
+
+        file_path = finding.get(
+            "file",
+            finding.get("path", "")
+        )
+
+        line_number = finding.get("line")
+
+        evidence = str(
+            finding.get("evidence", "")
+        ).strip()
+
+        item = {
+            "file": file_path,
+            "line": line_number,
+            "pattern": pattern,
+            "evidence": evidence,
+            "classification": classification,
+        }
+
+        if classification == "suspicious":
+            suspicious.append(item)
+
+        elif classification == "informational":
+            informational.append(item)
+
+    # --------------------------------------------------------
+    # Hypothesis generation
+    # --------------------------------------------------------
+
+    patterns = {
+        str(item.get("pattern", "")).lower()
+        for item in suspicious
+    }
+
+    if "syntaxerror" in patterns:
+
+        hypotheses.append({
+            "type": "syntax",
+            "statement": (
+                "قد توجد مشكلة نحوية، لكن ظهور كلمة SyntaxError "
+                "داخل الملف وحده لا يثبت وجود SyntaxError فعلي."
+            ),
+            "confidence": "low",
+            "evidence_count": sum(
+                1 for item in suspicious
+                if str(item.get("pattern", "")).lower()
+                == "syntaxerror"
+            ),
+        })
+
+        missing_evidence.append(
+            "نتيجة py_compile أو traceback فعلي يثبت خطأ SyntaxError."
+        )
+
+        verification_plan.append(
+            "تشغيل py_compile على الملف المتأثر للحصول على تحقق مستقل."
+        )
+
+    if "traceback" in patterns:
+
+        hypotheses.append({
+            "type": "runtime_error",
+            "statement": (
+                "قد يكون هناك مؤشر على خطأ وقت تشغيل، "
+                "لكن وجود كلمة Traceback في النص لا يثبت أن الملف "
+                "يحتوي على Traceback ناتج عن تنفيذ فعلي."
+            ),
+            "confidence": "low",
+            "evidence_count": sum(
+                1 for item in suspicious
+                if str(item.get("pattern", "")).lower()
+                == "traceback"
+            ),
+        })
+
+        missing_evidence.append(
+            "Traceback فعلي مرتبط بتنفيذ الوظيفة المتأثرة."
+        )
+
+        verification_plan.append(
+            "إعادة إنتاج المشكلة أو تنفيذ اختبار الوظيفة المتأثرة."
+        )
+
+    if "fixme" in patterns:
+
+        hypotheses.append({
+            "type": "incomplete_work",
+            "statement": (
+                "وجود FIXME يشير إلى نقطة تستحق المراجعة، "
+                "لكنه لا يثبت وجود Bug."
+            ),
+            "confidence": "low",
+            "evidence_count": sum(
+                1 for item in suspicious
+                if str(item.get("pattern", "")).lower()
+                == "fixme"
+            ),
+        })
+
+        missing_evidence.append(
+            "تحديد ما إذا كانت نقطة FIXME تؤثر فعليًا على السلوك."
+        )
+
+        verification_plan.append(
+            "فحص السلوك المرتبط بنقطة FIXME قبل اقتراح تعديل."
+        )
+
+    # --------------------------------------------------------
+    # No suspicious evidence
+    # --------------------------------------------------------
+
+    if not suspicious:
+
+        diagnosis = (
+            "لم يتم العثور على دليل suspicious كافٍ لبناء "
+            "فرضية Bug. الأدلة الحالية معلوماتية فقط."
+        )
+
+    else:
+
+        diagnosis = (
+            f"تم العثور على {len(suspicious)} مؤشر suspicious، "
+            "لكن لا يوجد دليل كافٍ لتأكيد Bug. "
+            "يلزم تحقق مستقل قبل إصدار تشخيص نهائي."
+        )
+
+    # --------------------------------------------------------
+    # Always require independent verification
+    # --------------------------------------------------------
+
+    if not verification_plan:
+        verification_plan.append(
+            "إجراء تحقق مستقل قبل اعتبار أي مشكلة Bug مؤكدة."
+        )
+
+    if not missing_evidence:
+        missing_evidence.append(
+            "دليل تنفيذي مستقل يؤكد المشكلة."
+        )
+
+    return {
+        "success": True,
+        "diagnosis": diagnosis,
+        "hypotheses": hypotheses,
+        "missing_evidence": missing_evidence,
+        "verification_plan": verification_plan,
+        "statistics": {
+            "total_findings": len(findings),
+            "suspicious": len(suspicious),
+            "informational": len(informational),
+            "confirmed": sum(
+                1
+                for item in findings
+                if isinstance(item, dict)
+                and item.get("classification") == "confirmed"
+            ),
+        },
+        "safety": {
+            "read_only": True,
+            "modification_allowed": False,
+            "terminal_allowed": False,
+            "confirmed_bug_allowed": False,
+        },
+    }
+
+# ============================================================
+# ALIX V4 — LAYER 6.1 VERIFICATION BRIDGE
+# ============================================================
+
+# ============================================================
+# ALIX V4 — LAYER 6.1 VERIFICATION BRIDGE
+# ============================================================
+# Converts diagnosis hypotheses into explicit verification
+# requirements.
+#
+# Read-only.
+# No Terminal.
+# No file modification.
+# Never confirms a bug by itself.
+# ============================================================
+
+def build_verification_bridge(diagnosis_result):
+    """
+    يبني جسر التحقق من تشخيص Layer 6.
+
+    Layer 6.1 لا تنفذ الاختبارات.
+    Layer 6.1 لا تستخدم Terminal.
+    Layer 6.1 لا تعدل الملفات.
+    Layer 6.1 لا تؤكد Bug من نفسها.
+
+    الهدف:
+        Hypothesis
+             ↓
+        Required Evidence
+             ↓
+        Verification Method
+             ↓
+        Confirmation Policy
+    """
+
+    if not isinstance(diagnosis_result, dict):
+        return {
+            "success": False,
+            "verification_items": [],
+            "error": "diagnosis_result يجب أن يكون dict",
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+                "confirmation_allowed": False,
+            },
+        }
+
+    if not diagnosis_result.get("success"):
+        return {
+            "success": False,
+            "verification_items": [],
+            "error": "نتيجة التشخيص غير ناجحة",
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+                "confirmation_allowed": False,
+            },
+        }
+
+    hypotheses = diagnosis_result.get("hypotheses", [])
+
+    if not isinstance(hypotheses, list):
+        return {
+            "success": False,
+            "verification_items": [],
+            "error": "hypotheses يجب أن تكون قائمة",
+            "safety": {
+                "read_only": True,
+                "modification_allowed": False,
+                "terminal_allowed": False,
+                "confirmation_allowed": False,
+            },
+        }
+
+    verification_items = []
+
+    for index, hypothesis in enumerate(hypotheses, 1):
+
+        if not isinstance(hypothesis, dict):
+            continue
+
+        hypothesis_type = str(
+            hypothesis.get("type", "unknown")
+        )
+
+        statement = str(
+            hypothesis.get("statement", "")
+        )
+
+        confidence = str(
+            hypothesis.get("confidence", "unknown")
+        )
+
+        if hypothesis_type == "syntax":
+
+            required_evidence = (
+                "نتيجة py_compile أو أداة تحقق نحوي مستقلة."
+            )
+
+            verification_method = (
+                "Syntax verification"
+            )
+
+        elif hypothesis_type == "runtime_error":
+
+            required_evidence = (
+                "Traceback فعلي ناتج عن تنفيذ الوظيفة المتأثرة."
+            )
+
+            verification_method = (
+                "Runtime reproduction"
+            )
+
+        elif hypothesis_type == "incomplete_work":
+
+            required_evidence = (
+                "دليل سلوكي يثبت أن نقطة FIXME تؤثر على الوظيفة."
+            )
+
+            verification_method = (
+                "Behavioral verification"
+            )
+
+        else:
+
+            required_evidence = (
+                "دليل مستقل مرتبط مباشرة بالفرضية."
+            )
+
+            verification_method = (
+                "Independent verification"
+            )
+
+        verification_items.append({
+            "id": index,
+            "hypothesis_type": hypothesis_type,
+            "hypothesis": statement,
+            "current_confidence": confidence,
+            "required_evidence": required_evidence,
+            "verification_method": verification_method,
+            "status": "unverified",
+            "can_confirm_bug": False,
+        })
+
+    # --------------------------------------------------------
+    # If there are no hypotheses, still provide a safe state.
+    # --------------------------------------------------------
+
+    if not verification_items:
+
+        verification_items.append({
+            "id": 1,
+            "hypothesis_type": "none",
+            "hypothesis": "لا توجد فرضية قابلة للتحقق حاليًا.",
+            "current_confidence": "none",
+            "required_evidence": (
+                "لا يوجد دليل إضافي مطلوب حتى تظهر فرضية."
+            ),
+            "verification_method": "none",
+            "status": "not_applicable",
+            "can_confirm_bug": False,
+        })
+
+    return {
+        "success": True,
+        "count": len(verification_items),
+        "verification_items": verification_items,
+        "policy": {
+            "unverified_hypotheses_are_not_bugs": True,
+            "independent_evidence_required": True,
+            "execution_required_for_confirmation": True,
+        },
+        "safety": {
+            "read_only": True,
+            "modification_allowed": False,
+            "terminal_allowed": False,
+            "confirmation_allowed": False,
+        },
+    }
+
+if __name__ == "__main__":
+    main()
+
+===== CORE/LLM.PY =====
+import json
+import urllib.request
+
+
+class LocalLLM:
+
+    def __init__(
+        self,
+        url="http://127.0.0.1:8081/v1/chat/completions",
+        model="Qwen3.5-4B-Instruct-Q4_K_M.gguf"
+    ):
+        self.url = url
+        self.model = model
+
+    def chat(self, messages, tools=None):
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 300
+        }
+
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        data = json.dumps(
+            payload,
+            ensure_ascii=False
+        ).encode("utf-8")
+
+        request = urllib.request.Request(
+            self.url,
+            data=data,
+            headers={
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=360
+        ) as response:
+
+            result = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        return result["choices"][0]["message"]
+
+===== CORE/POLICY.PY =====
+from pathlib import Path
+import re
+import shlex
+
+
+class Policy:
+    """
+    طبقة الأمان والصلاحيات الخاصة بـ ALIX.
+
+    القاعدة الأساسية:
+    ALIX لا يستطيع التعامل مع الملفات خارج workspace.
+    """
+
+    def __init__(self):
+        self.base_dir = (
+            Path.home() / "ALIX-Agent"
+        ).resolve()
+
+        self.workspace = (
+            self.base_dir / "workspace"
+        ).resolve()
+
+        self.workspace.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        # الأوامر الأساسية المسموح لـ ALIX باستخدامها.
+        self.allowed_commands = {
+            "pwd",
+            "ls",
+            "cat",
+            "head",
+            "tail",
+            "grep",
+            "find",
+            "wc",
+            "sort",
+            "uniq",
+            "cut",
+            "tr",
+            "echo",
+            "printf",
+            "date",
+            "whoami",
+            "uname",
+            "df",
+            "du",
+            "free",
+            "file",
+            "which",
+            "python",
+            "python3",
+            "git",
+        }
+
+        # أوامر خطرة ممنوعة دائمًا.
+        self.blocked_commands = {
+            "rm",
+            "rmdir",
+            "mkfs",
+            "dd",
+            "chmod",
+            "chown",
+            "mount",
+            "umount",
+            "su",
+            "sudo",
+            "reboot",
+            "shutdown",
+            "poweroff",
+            "kill",
+            "pkill",
+        }
+
+        # أنماط خطرة حتى لو حاول النموذج إخفاء الأمر.
+        self.blocked_patterns = [
+            r";",
+            r"&&",
+            r"\|\|",
+            r"\|",
+            r"`",
+            r"\$\(",
+            r"\$\{",
+            r">\s*/",
+            r">>\s*/",
+            r"<\s*/",
+            r"\.\./",
+            r"~\/\.\.",
+            r"\b/etc\b",
+            r"\b/proc\b",
+            r"\b/sys\b",
+            r"\b/dev\b",
+            r"\b/data/data\b",
+            r"\b/data/user\b",
+            r"\bsystemctl\b",
+            r"\bservice\b",
+            r"\bcurl\b.*\|\s*(sh|bash)",
+            r"\bwget\b.*\|\s*(sh|bash)",
+        ]
+
+    # ========================================================
+    # PATH SECURITY
+    # ========================================================
+
+    def resolve_path(self, path: str) -> Path | None:
+        """
+        يحول المسار إلى مسار مطلق ويتأكد أنه داخل workspace.
+        """
+
+        if not isinstance(path, str):
+            return None
+
+        path = path.strip()
+
+        if not path:
+            path = "."
+
+        try:
+            candidate = Path(path)
+
+            if not candidate.is_absolute():
+                candidate = self.workspace / candidate
+
+            candidate = candidate.resolve()
+
+        except Exception:
+            return None
+
+        if not self.path_allowed(candidate):
+            return None
+
+        return candidate
+
+    def path_allowed(self, path) -> bool:
+        """
+        يتحقق من أن المسار داخل workspace.
+        """
+
+        try:
+            path = Path(path).resolve()
+            workspace = self.workspace.resolve()
+
+            return (
+                path == workspace
+                or workspace in path.parents
+            )
+
+        except Exception:
+            return False
+
+    # ========================================================
+    # COMMAND SECURITY
+    # ========================================================
+
+    def command_allowed(self, command: str) -> bool:
+        """
+        يتحقق من أن أمر shell بسيط وموجود في القائمة البيضاء.
+        """
+
+        if not isinstance(command, str):
+            return False
+
+        command = command.strip()
+
+        if not command:
+            return False
+
+        # فحص الأنماط الخطرة أولاً.
+        for pattern in self.blocked_patterns:
+
+            if re.search(
+                pattern,
+                command,
+                flags=re.IGNORECASE
+            ):
+                return False
+
+        # تحليل الأمر بدون shell expansion.
+        try:
+            parts = shlex.split(command)
+
+        except ValueError:
+            return False
+
+        if not parts:
+            return False
+
+        executable = Path(parts[0]).name
+
+        # القائمة السوداء لها الأولوية.
+        if executable in self.blocked_commands:
+            return False
+
+        # يجب أن يكون الأمر في القائمة البيضاء.
+        if executable not in self.allowed_commands:
+            return False
+
+        return True
+
+    # ========================================================
+    # CONFIRMATION POLICY
+    # ========================================================
+
+    def requires_confirmation(self, action: str) -> bool:
+        """
+        العمليات التي يجب أن يوافق عليها المستخدم.
+        """
+
+        return action in {
+            "write_file",
+            "create_directory",
+            "delete_file",
+            "run_command",
+            "run_python",
+            "git",
+        }
+
+    # ========================================================
+    # TOOL POLICY
+    # ========================================================
+
+    def tool_allowed(self, tool_name: str) -> bool:
+        """
+        يتحقق من أن الأداة معروفة لـ ALIX.
+        """
+
+        return tool_name in {
+            "list_files",
+            "read_file",
+            "write_file",
+            "create_directory",
+            "delete_file",
+            "run_python",
+            "run_command",
+            "system_info",
+            "git_status",
+        }
+
+===== CORE/AGENT.PY =====
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import json
+import re
+
+from core.llm import LocalLLM
+from core.policy import Policy
+from core.registry import ToolRegistry
+from core.memory import Memory
+
+
+SYSTEM_PROMPT = """
+أنت ALIX Local، وكيل ذكاء اصطناعي محلي يعمل داخل Termux.
+
+القواعد:
+
+1. أجب بالعربية عندما يكون ذلك مناسباً.
+2. لا تعرض التفكير الداخلي.
+3. لا تدّعي تنفيذ عملية لم يتم تنفيذها فعلياً.
+4. عندما تحتاج إلى تنفيذ عملية استخدم الأدوات المتاحة.
+5. جميع عمليات الملفات يجب أن تكون داخل workspace.
+6. لا تحاول الوصول إلى ملفات نظام Android.
+7. لا تستخدم sudo أو su.
+8. لا تنفذ أوامر خطرة.
+9. بعد تنفيذ الأداة اقرأ نتيجتها قبل إعطاء الإجابة النهائية.
+10. إذا فشلت الأداة، تعامل مع الخطأ ولا تخترع نتيجة.
+11. استخدم أقل عدد ممكن من الأدوات لإنجاز المهمة.
+"""
+
+
+TOOLS = [
+
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": "عرض الملفات والمجلدات داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "مسار نسبي داخل workspace."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "قراءة ملف نصي داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "create_directory",
+            "description": "إنشاء مجلد داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "إنشاء أو كتابة ملف نصي داخل workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "system_info",
+            "description": "عرض معلومات أساسية عن بيئة Termux والجهاز.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    }
+]
+
+
+class ALIXAgent:
+
+    def __init__(self):
+
+        self.policy = Policy()
+
+        self.registry = ToolRegistry(
+            self.policy
+        )
+
+        self.llm = LocalLLM()
+
+        self.memory = Memory()
+
+        self.messages = [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            }
+        ]
+
+    # ========================================================
+    # Tool execution
+    # ========================================================
+
+    def execute_tool(
+        self,
+        name,
+        arguments
+    ):
+
+        if not self.registry.has(name):
+
+            return {
+                "ok": False,
+                "error": f"الأداة غير موجودة: {name}"
+            }
+
+        if not isinstance(arguments, dict):
+
+            return {
+                "ok": False,
+                "error": "arguments غير صالحة."
+            }
+
+        # ----------------------------------------------------
+        # Policy
+        # ----------------------------------------------------
+
+        if name == "create_directory":
+
+            path = arguments.get("path", "")
+
+            if not self.policy.path_allowed(
+                self.policy.workspace / path
+            ):
+
+                return {
+                    "ok": False,
+                    "error": "المسار خارج workspace."
+                }
+
+        if name in {
+            "write_file",
+            "read_file",
+            "list_files"
+        }:
+
+            path = arguments.get(
+                "path",
+                "."
+            )
+
+            if not self.policy.path_allowed(
+                self.policy.workspace / path
+            ):
+
+                return {
+                    "ok": False,
+                    "error": "المسار خارج workspace."
+                }
+
+        # ----------------------------------------------------
+        # User confirmation
+        # ----------------------------------------------------
+
+        if name in {
+            "create_directory",
+            "write_file"
+        }:
+
+            print()
+            print("ALIX يريد تنفيذ:")
+            print(
+                f"  {name}: "
+                f"{json.dumps(arguments, ensure_ascii=False)}"
+            )
+
+            answer = input(
+                "السماح؟ [y/N] "
+            ).strip().lower()
+
+            if answer not in {
+                "y",
+                "yes",
+                "نعم",
+                "ن"
+            }:
+
+                return {
+                    "ok": False,
+                    "error": "المستخدم رفض العملية."
+                }
+
+        # ----------------------------------------------------
+        # Execute
+        # ----------------------------------------------------
+
+        print(
+            f"⚙ ALIX ينفذ: {name}"
+        )
+
+        result = self.registry.execute(
+            name,
+            arguments
+        )
+
+        if result.get("ok"):
+
+            print(
+                "✓ نجح التنفيذ"
+            )
+
+        else:
+
+            print(
+                "✗ فشل التنفيذ"
+            )
+
+        return result
+
+    # ========================================================
+    # Extract tool calls
+    # ========================================================
+
+    def extract_tool_calls(
+        self,
+        message
+    ):
+
+        calls = []
+
+        native = message.get(
+            "tool_calls",
+            []
+        )
+
+        for call in native:
+
+            function = call.get(
+                "function",
+                {}
+            )
+
+            name = function.get(
+                "name"
+            )
+
+            arguments = function.get(
+                "arguments",
+                "{}"
+            )
+
+            if isinstance(
+                arguments,
+                str
+            ):
+
+                try:
+
+                    arguments = json.loads(
+                        arguments
+                    )
+
+                except Exception:
+
+                    arguments = {}
+
+            if name:
+
+                calls.append(
+                    (
+                        call.get(
+                            "id",
+                            "call"
+                        ),
+                        name,
+                        arguments
+                    )
+                )
+
+        # ----------------------------------------------------
+        # Fallback parser
+        # ----------------------------------------------------
+
+        content = message.get(
+            "content",
+            ""
+        ) or ""
+
+        pattern = (
+            r"<tool_call>\s*"
+            r"(\{.*?\})"
+            r"\s*</tool_call>"
+        )
+
+        for match in re.finditer(
+            pattern,
+            content,
+            re.DOTALL
+        ):
+
+            try:
+
+                obj = json.loads(
+                    match.group(1)
+                )
+
+                name = obj.get(
+                    "name"
+                )
+
+                arguments = obj.get(
+                    "arguments",
+                    {}
+                )
+
+                if name:
+
+                    calls.append(
+                        (
+                            f"fallback-{len(calls)}",
+                            name,
+                            arguments
+                        )
+                    )
+
+            except Exception:
+
+                pass
+
+        return calls
+
+    # ========================================================
+    # Clean response
+    # ========================================================
+
+    def clean_response(
+        self,
+        text
+    ):
+
+        if not text:
+
+            return ""
+
+        text = re.sub(
+            r"<think>.*?</think>",
+            "",
+            text,
+            flags=re.DOTALL
+        )
+
+        text = re.sub(
+            r"<tool_call>.*?</tool_call>",
+            "",
+            text,
+            flags=re.DOTALL
+        )
+
+        return text.strip()
+
+    # ========================================================
+    # Main agent loop
+    # ========================================================
+
+    def run(
+        self,
+        user
+    ):
+
+        self.messages.append({
+            "role": "user",
+            "content": user
+        })
+
+        self.memory.add_history(
+            "user",
+            user
+        )
+
+        # ----------------------------------------------------
+        # Include compact memory context
+        # ----------------------------------------------------
+
+        context = self.memory.get_context()
+
+        if (
+            context["facts"]
+            or context["preferences"]
+        ):
+
+            memory_text = (
+                "\nذاكرة ALIX:\n"
+                + json.dumps(
+                    {
+                        "facts":
+                            context["facts"][-10:],
+                        "preferences":
+                            context["preferences"][-10:]
+                    },
+                    ensure_ascii=False
+                )
+            )
+
+            self.messages.append({
+                "role": "system",
+                "content": memory_text
+            })
+
+        # ----------------------------------------------------
+        # Agent loop
+        # ----------------------------------------------------
+
+        for _ in range(8):
+
+            message = self.llm.chat(
+                self.messages,
+                tools=TOOLS
+            )
+
+            tool_calls = self.extract_tool_calls(
+                message
+            )
+
+            # ------------------------------------------------
+            # Final answer
+            # ------------------------------------------------
+
+            if not tool_calls:
+
+                answer = self.clean_response(
+                    message.get(
+                        "content",
+                        ""
+                    )
+                )
+
+                self.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
+                if answer:
+
+                    self.memory.add_history(
+                        "assistant",
+                        answer
+                    )
+
+                    return answer
+
+                return "لم يرجع النموذج إجابة."
+
+            # ------------------------------------------------
+            # Preserve assistant tool-call message
+            # ------------------------------------------------
+
+            self.messages.append(
+                message
+            )
+
+            # ------------------------------------------------
+            # Execute tools
+            # ------------------------------------------------
+
+            for (
+                call_id,
+                name,
+                arguments
+            ) in tool_calls[:4]:
+
+                result = self.execute_tool(
+                    name,
+                    arguments
+                )
+
+                self.messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": name,
+                    "content": json.dumps(
+                        result,
+                        ensure_ascii=False
+                    )
+                })
+
+        return (
+            "توقّف ALIX بعد الوصول إلى "
+            "الحد الأقصى لخطوات المهمة."
+        )
+
+===== CORE/MEMORY.PY =====
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import json
+from pathlib import Path
+
+
+class Memory:
+
+    def __init__(self, path=None):
+
+        self.path = Path(
+            path or
+            Path.home() /
+            "ALIX-Agent" /
+            "memory" /
+            "memory.json"
+        )
+
+        self.path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        if not self.path.exists():
+
+            self._save({
+                "facts": [],
+                "preferences": [],
+                "history": []
+            })
+
+    def _load(self):
+
+        try:
+
+            with self.path.open(
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                data = json.load(f)
+
+            if not isinstance(data, dict):
+                raise ValueError("Invalid memory format")
+
+            return data
+
+        except Exception:
+
+            return {
+                "facts": [],
+                "preferences": [],
+                "history": []
+            }
+
+    def _save(self, data):
+
+        temp = self.path.with_suffix(".tmp")
+
+        with temp.open(
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                data,
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
+
+        temp.replace(self.path)
+
+    def add_fact(self, fact):
+
+        if not fact:
+            return False
+
+        data = self._load()
+
+        if fact not in data["facts"]:
+
+            data["facts"].append(fact)
+
+            self._save(data)
+
+        return True
+
+    def add_preference(self, preference):
+
+        if not preference:
+            return False
+
+        data = self._load()
+
+        if preference not in data["preferences"]:
+
+            data["preferences"].append(
+                preference
+            )
+
+            self._save(data)
+
+        return True
+
+    def add_history(
+        self,
+        role,
+        content
+    ):
+
+        data = self._load()
+
+        data["history"].append({
+            "role": role,
+            "content": content
+        })
+
+        # الاحتفاظ بآخر 50 رسالة فقط
+        data["history"] = data["history"][-50:]
+
+        self._save(data)
+
+    def get_context(self):
+
+        data = self._load()
+
+        return {
+            "facts": data.get(
+                "facts",
+                []
+            ),
+
+            "preferences": data.get(
+                "preferences",
+                []
+            ),
+
+            "history": data.get(
+                "history",
+                []
+            )
+        }
+
+    def clear_history(self):
+
+        data = self._load()
+
+        data["history"] = []
+
+        self._save(data)
+
+===== TOOLS =====
+tools/__init__.py
+===== tools/__init__.py =====
+
+tools/filesystem.py
+===== tools/filesystem.py =====
+from pathlib import Path
+import subprocess
+import sys
+
+
+class FileSystemTools:
+    """
+    أدوات الملفات الخاصة بـ ALIX.
+
+    كل عمليات الملفات محصورة داخل:
+        ~/ALIX-Agent/workspace
+    """
+
+    MAX_READ_SIZE = 2 * 1024 * 1024
+    MAX_WRITE_SIZE = 2 * 1024 * 1024
+    COMMAND_TIMEOUT = 60
+
+    def __init__(self, policy):
+        self.policy = policy
+
+    # ========================================================
+    # PATH
+    # ========================================================
+
+    def _path(self, path):
+        """
+        تحويل المسار والتحقق من أنه داخل workspace.
+        """
+
+        resolved = self.policy.resolve_path(path)
+
+        if resolved is None:
+            raise PermissionError(
+                "المسار خارج مساحة ALIX."
+            )
+
+        return resolved
+
+    # ========================================================
+    # LIST
+    # ========================================================
+
+    def list_files(
+        self,
+        path=".",
+        all=False
+    ):
+        base = self._path(path)
+
+        if not base.exists():
+
+            return {
+                "ok": False,
+                "error": "المسار غير موجود."
+            }
+
+        if not base.is_dir():
+
+            return {
+                "ok": False,
+                "error": "المسار ليس مجلدًا."
+            }
+
+        items = []
+
+        try:
+
+            entries = sorted(
+                base.iterdir(),
+                key=lambda x: (
+                    not x.is_dir(),
+                    x.name.lower()
+                )
+            )
+
+            for item in entries:
+
+                if (
+                    not all
+                    and item.name.startswith(".")
+                ):
+                    continue
+
+                try:
+
+                    item_type = (
+                        "directory"
+                        if item.is_dir()
+                        else "file"
+                    )
+
+                    size = (
+                        item.stat().st_size
+                        if item.is_file()
+                        else None
+                    )
+
+                except OSError:
+
+                    item_type = "unknown"
+                    size = None
+
+                items.append({
+                    "name": item.name,
+                    "type": item_type,
+                    "size": size
+                })
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+        try:
+
+            relative = base.relative_to(
+                self.policy.workspace
+            )
+
+            relative_path = (
+                str(relative)
+                if str(relative) != "."
+                else "."
+            )
+
+        except ValueError:
+
+            relative_path = "."
+
+        return {
+            "ok": True,
+            "path": relative_path,
+            "items": items[:500]
+        }
+
+    # ========================================================
+    # READ
+    # ========================================================
+
+    def read_file(self, path):
+
+        base = self._path(path)
+
+        if not base.exists():
+
+            return {
+                "ok": False,
+                "error": "الملف غير موجود."
+            }
+
+        if not base.is_file():
+
+            return {
+                "ok": False,
+                "error": "المسار ليس ملفًا."
+            }
+
+        try:
+
+            size = base.stat().st_size
+
+        except OSError as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+        if size > self.MAX_READ_SIZE:
+
+            return {
+                "ok": False,
+                "error": (
+                    f"الملف أكبر من الحد المسموح "
+                    f"({self.MAX_READ_SIZE} bytes)."
+                )
+            }
+
+        try:
+
+            content = base.read_text(
+                encoding="utf-8",
+                errors="replace"
+            )
+
+            return {
+                "ok": True,
+                "path": str(
+                    base.relative_to(
+                        self.policy.workspace
+                    )
+                ),
+                "content": content,
+                "bytes": size
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # CREATE DIRECTORY
+    # ========================================================
+
+    def create_directory(self, path):
+
+        base = self._path(path)
+
+        try:
+
+            base.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+            return {
+                "ok": True,
+                "path": str(
+                    base.relative_to(
+                        self.policy.workspace
+                    )
+                )
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # WRITE
+    # ========================================================
+
+    def write_file(
+        self,
+        path,
+        content
+    ):
+
+        base = self._path(path)
+
+        if not isinstance(
+            content,
+            str
+        ):
+
+            return {
+                "ok": False,
+                "error": "content يجب أن يكون نصًا."
+            }
+
+        encoded = content.encode(
+            "utf-8"
+        )
+
+        if len(encoded) > self.MAX_WRITE_SIZE:
+
+            return {
+                "ok": False,
+                "error": (
+                    f"المحتوى أكبر من الحد المسموح "
+                    f"({self.MAX_WRITE_SIZE} bytes)."
+                )
+            }
+
+        try:
+
+            base.parent.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+            base.write_text(
+                content,
+                encoding="utf-8"
+            )
+
+            return {
+                "ok": True,
+                "path": str(
+                    base.relative_to(
+                        self.policy.workspace
+                    )
+                ),
+                "bytes": len(encoded)
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # DELETE
+    # ========================================================
+
+    def delete_file(self, path):
+
+        base = self._path(path)
+
+        if base == self.policy.workspace:
+
+            return {
+                "ok": False,
+                "error": (
+                    "لا يمكن حذف workspace."
+                )
+            }
+
+        if not base.exists():
+
+            return {
+                "ok": False,
+                "error": "الملف غير موجود."
+            }
+
+        if not base.is_file():
+
+            return {
+                "ok": False,
+                "error": (
+                    "يمكن حذف الملفات فقط، "
+                    "وليس المجلدات."
+                )
+            }
+
+        try:
+
+            base.unlink()
+
+            return {
+                "ok": True,
+                "deleted": str(
+                    base.relative_to(
+                        self.policy.workspace
+                    )
+                )
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # RUN PYTHON
+    # ========================================================
+
+    def run_python(
+        self,
+        path,
+        args=None
+    ):
+
+        base = self._path(path)
+
+        if base.suffix.lower() != ".py":
+
+            return {
+                "ok": False,
+                "error": (
+                    "يجب أن يكون الملف "
+                    "Python (.py)."
+                )
+            }
+
+        if not base.is_file():
+
+            return {
+                "ok": False,
+                "error": "ملف Python غير موجود."
+            }
+
+        if args is None:
+            args = []
+
+        if not isinstance(
+            args,
+            list
+        ):
+
+            return {
+                "ok": False,
+                "error": (
+                    "args يجب أن تكون قائمة."
+                )
+            }
+
+        safe_args = []
+
+        for value in args:
+
+            if not isinstance(
+                value,
+                (str, int, float)
+            ):
+
+                return {
+                    "ok": False,
+                    "error": (
+                        "كل عنصر في args "
+                        "يجب أن يكون قيمة بسيطة."
+                    )
+                }
+
+            safe_args.append(
+                str(value)
+            )
+
+        command = [
+            sys.executable,
+            str(base)
+        ]
+
+        command.extend(
+            safe_args
+        )
+
+        try:
+
+            result = subprocess.run(
+                command,
+                cwd=str(
+                    self.policy.workspace
+                ),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=self.COMMAND_TIMEOUT
+            )
+
+            return {
+                "ok": result.returncode == 0,
+                "exit_code": result.returncode,
+                "stdout": result.stdout[-12000:],
+                "stderr": result.stderr[-12000:]
+            }
+
+        except subprocess.TimeoutExpired:
+
+            return {
+                "ok": False,
+                "error": (
+                    "انتهت مهلة تشغيل Python."
+                )
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+tools/system.py
+===== tools/system.py =====
+import os
+import platform
+import shutil
+import subprocess
+
+
+class SystemTools:
+    """
+    أدوات النظام الخاصة بـ ALIX.
+
+    لا يوجد تنفيذ Shell مفتوح.
+    أوامر shell تمر أولاً عبر Policy.
+    """
+
+    def __init__(self, policy=None):
+        self.policy = policy
+
+    # ========================================================
+    # SYSTEM INFO
+    # ========================================================
+
+    def system_info(self):
+
+        try:
+            disk = shutil.disk_usage("/")
+
+            return {
+                "ok": True,
+                "platform": platform.platform(),
+                "system": platform.system(),
+                "release": platform.release(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "python": platform.python_version(),
+                "cpu_count": os.cpu_count(),
+                "home": str(
+                    os.path.expanduser("~")
+                ),
+                "disk_total": disk.total,
+                "disk_used": disk.used,
+                "disk_free": disk.free,
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # RUN COMMAND
+    # ========================================================
+
+    def run_command(
+        self,
+        command,
+        timeout=30
+    ):
+
+        if self.policy is None:
+
+            return {
+                "ok": False,
+                "error": (
+                    "Policy غير متوفرة."
+                )
+            }
+
+        if not isinstance(
+            command,
+            str
+        ):
+
+            return {
+                "ok": False,
+                "error": (
+                    "command يجب أن يكون نصًا."
+                )
+            }
+
+        command = command.strip()
+
+        if not command:
+
+            return {
+                "ok": False,
+                "error": "الأمر فارغ."
+            }
+
+        # ----------------------------------------------------
+        # Security check
+        # ----------------------------------------------------
+
+        if not self.policy.command_allowed(
+            command
+        ):
+
+            return {
+                "ok": False,
+                "error": (
+                    "تم رفض الأمر بواسطة "
+                    "سياسة الأمان."
+                )
+            }
+
+        # ----------------------------------------------------
+        # Timeout
+        # ----------------------------------------------------
+
+        try:
+
+            timeout = int(timeout)
+
+        except Exception:
+
+            timeout = 30
+
+        timeout = max(
+            1,
+            min(timeout, 60)
+        )
+
+        # ----------------------------------------------------
+        # Execute
+        # ----------------------------------------------------
+
+        try:
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                cwd=str(
+                    self.policy.workspace
+                ),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+
+            return {
+                "ok": result.returncode == 0,
+                "exit_code": result.returncode,
+                "stdout": result.stdout[-12000:],
+                "stderr": result.stderr[-12000:]
+            }
+
+        except subprocess.TimeoutExpired:
+
+            return {
+                "ok": False,
+                "error": (
+                    f"انتهت المهلة بعد "
+                    f"{timeout} ثانية."
+                )
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+    # ========================================================
+    # GIT STATUS
+    # ========================================================
+
+    def git_status(self, path="."):
+
+        if self.policy is None:
+
+            return {
+                "ok": False,
+                "error": (
+                    "Policy غير متوفرة."
+                )
+            }
+
+        target = self.policy.resolve_path(
+            path
+        )
+
+        if target is None:
+
+            return {
+                "ok": False,
+                "error": (
+                    "المسار خارج مساحة ALIX."
+                )
+            }
+
+        if not target.exists():
+
+            return {
+                "ok": False,
+                "error": (
+                    "المسار غير موجود."
+                )
+            }
+
+        try:
+
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(target),
+                    "status",
+                    "--short",
+                    "--branch"
+                ],
+                cwd=str(
+                    self.policy.workspace
+                ),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+
+            return {
+                "ok": result.returncode == 0,
+                "exit_code": result.returncode,
+                "stdout": result.stdout[-12000:],
+                "stderr": result.stderr[-4000:]
+            }
+
+        except subprocess.TimeoutExpired:
+
+            return {
+                "ok": False,
+                "error": (
+                    "انتهت مهلة Git."
+                )
+            }
+
+        except Exception as e:
+
+            return {
+                "ok": False,
+                "error": str(e)
+            }
+
+tools/__pycache__/filesystem.cpython-314.pyc
+===== tools/__pycache__/filesystem.cpython-314.pyc =====
++
+    �ёjV(  �                   �6   � ^ RI Ht ^ RIt^ RIt ! R R4      tR# )�    )�PathNc                   �h   a � ] tR t^t o RtRtRt^<tR tR t	RR lt
+R tR tR tR tRR
+ ltRtV tR	# )�FileSystemToolsu�   
+أدوات الملفات الخاصة بـ ALIX.
+
+كل عمليات الملفات محصورة داخل:
+    ~/ALIX-Agent/workspace
+c                �   � Wn         R # �N��policy)�selfr	   s   &&�tools/filesystem.py�__init__�FileSystemTools.__init__   s   � ���    c                �Z   � V P                   P                  V4      pVf   \        R4      hV# )uH   
+تحويل المسار والتحقق من أنه داخل workspace.
+u&   المسار خارج مساحة ALIX.)r	   �resolve_path�PermissionError)r
+   �path�resolveds   && r   �_path�FileSystemTools._path   s5   � �
+ �;�;�+�+�D�1����!�8�� � �r   c           	     �X  � V P                  V4      pVP                  4       '       g   R RRR/# VP                  4       '       g   R RRR/# . p \        VP	                  4       R R7      pV F�  pV'       g$   VP
+                  P                  R4      '       d   K.   VP                  4       '       d   RMR	pVP                  4       '       d   VP                  4       P                  MR
+pVP                  RVP
+                  RVRV/4       K�  	   TP                  T P                  P                   4      p
+\        T
+4      R8w  d   \        T
+4      MRpR RRTRTR,          /#   \         d    RpR
+p L�i ; i  \         d   p	R RR\        T	4      /u R
+p	?	# R
+p	?	ii ; i  \"         d    Rp LZi ; i)�okF�erroru   المسار غير موجود.u!   المسار ليس مجلدًا.c                 �`   � V P                  4       '       * V P                  P                  4       3# r   )�is_dir�name�lower)�xs   &r   �<lambda>�,FileSystemTools.list_files.<locals>.<lambda>F   s   � ����
+�N��F�F�L�L�N�r   )�key�.�	directory�fileN�unknownr   �type�sizeTr   �items:Ni�  N)r   �existsr   �sorted�iterdirr   �
+startswith�is_file�stat�st_size�OSError�append�	Exception�str�relative_tor	   �	workspace�
+ValueError)r
+   r   �all�baser'   �entries�item�	item_typer&   �e�relative�relative_paths   &&&         r   �
+list_files�FileSystemTools.list_files+   s�  � �
+ �z�z�$����{�{�}�}� �e��:�� �
+ �{�{�}�}� �e��<�� �
+ ��0	��������G�  �� ��	�	�,�,�S�1�1�� �  �;�;�=�=� $�#� �  �<�<�>�>� �	�	��+�+�!� � ����D�I�I��I��D�� �7  �P	 ��'�'����%�%��H� �x�=�C�'� �H��� � �$��M��U�4�[�
+� 	
+��E �  � )�I��D� �� � 	� �e���Q��� ��	��& � 	 ��M�	 �sh   �A	E2 �E2 �E�0E�
+E�&%E2 �AF �E/�,E2 �.E/�/E2 �2F�=F�F�F�F)�(F)c                �B  � V P                  V4      pVP                  4       '       g   R RRR/# VP                  4       '       g   R RRR/#  VP                  4       P                  pY0P                  8�  d   R RRRT P                   R2/#  TP                  RR	R
+7      pR RR\        TP                  T P                  P                  4      4      RTRT/#   \
+         d   pR RR\        T4      /u Rp?# Rp?ii ; i  \         d   pR RR\        T4      /u Rp?# Rp?ii ; i)r   Fr   �   الملف غير موجود.u   المسار ليس ملفًا.Nu2   الملف أكبر من الحد المسموح (� bytes).�utf-8�replace)�encoding�errorsTr   �content�bytes)r   r(   r,   r-   r.   r/   r2   �MAX_READ_SIZE�	read_textr3   r	   r4   r1   )r
+   r   r7   r&   r;   rG   s   &&    r   �	read_file�FileSystemTools.read_file�   s^  � ��z�z�$����{�{�}�}� �e��8�� �
+ �|�|�~�~� �e��:�� �
+		��9�9�;�&�&�D� �$�$�$� �e����*�*�+�8�5�� �	��n�n� � � %� �G� �d����$�$����-�-���
+ �7���	� 	��1 � 	� �e���Q��� ��	��F � 	� �e���Q��� ��	�s=   �C �
+AC: �C7�C2�,C7�2C7�:D�D�D�Dc                ��   � V P                  V4      p VP                  R R R7       RR R\        VP                  V P                  P
+                  4      4      /#   \         d   pRRR\        T4      /u Rp?# Rp?ii ; i)T��parents�exist_okr   r   Fr   N)r   �mkdirr2   r3   r	   r4   r1   �r
+   r   r7   r;   s   &&  r   �create_directory� FileSystemTools.create_directory�   s�   � ��z�z�$���	��J�J��� � � �d����$�$����-�-���� �� � 	� �e���Q��� ��	�s   �AA �A<�#A7�1A<�7A<c                �  � V P                  V4      p\        V\        4      '       g   R RRR/# VP                  R4      p\	        V4      V P
+                  8�  d   R RRRV P
+                   R2/#  VP                  P                  RRR7       VP                  VRR	7       R RR
+\        VP                  V P                  P                  4      4      R\	        V4      /#   \         d   pR RR\        T4      /u Rp?# Rp?ii ; i)r   Fr   u&   content يجب أن يكون نصًا.rC   u6   المحتوى أكبر من الحد المسموح (rB   TrN   )rE   r   rH   N)r   �
+isinstancer2   �encode�len�MAX_WRITE_SIZE�parentrQ   �
+write_textr3   r	   r4   r1   )r
+   r   rG   r7   �encodedr;   s   &&&   r   �
+write_file�FileSystemTools.write_file�   s7  � � �z�z�$������
+� 
+� �e��A�� �
+ �.�.��
+�� �w�<�$�-�-�-� �e����+�+�,�H�6�� �	��K�K����� � �
+ �O�O�� � � � �d����$�$����-�-���
+ ��W��� �� � 	� �e���Q��� ��	�s   �.A,C �C?�&C:�4C?�:C?c                �  � V P                  V4      pW P                  P                  8X  d   R RRR/# VP                  4       '       g   R RRR/# VP	                  4       '       g   R RRR/#  VP                  4        R RR\        VP                  V P                  P                  4      4      /#   \         d   pR RR\        T4      /u Rp?# Rp?ii ; i)	r   Fr   u   لا يمكن حذف workspace.rA   uB   يمكن حذف الملفات فقط، وليس المجلدات.T�deletedN)	r   r	   r4   r(   r,   �unlinkr2   r3   r1   rR   s   &&  r   �delete_file�FileSystemTools.delete_file2  s�   � ��z�z�$����;�;�(�(�(� �e��5�� � �{�{�}�}� �e��8�� �
+ �|�|�~�~� �e��1�� �	��K�K�M� �d��3��$�$����-�-���� �� � 	� �e���Q��� ��	�s   �+AB- �-C�8C�C�CNc           
+     �~  � V P                  V4      pVP                  P                  4       R 8w  d   RRRR/# VP                  4       '       g   RRRR/# Vf   . p\	        V\
+        4      '       g   RRRR/# . pV FF  p\	        V\        \        \        34      '       g	   RRRR/u # VP                  \        V4      4       KH  	  \        P                  \        V4      .pVP                  V4        \        P                  ! V\        V P                  P                   4      \        P"                  R	R	V P$                  R
+7      pRVP&                  ^ 8H  RVP&                  RVP(                  RR RVP*                  RR /#   \        P,                   d
+    RRRR/u # \.         d   pRRR\        T4      /u Rp?# Rp?ii ; i)z.pyr   Fr   u-   يجب أن يكون الملف Python (.py).u    ملف Python غير موجود.Nu%   args يجب أن تكون قائمة.uA   كل عنصر في args يجب أن يكون قيمة بسيطة.T)�cwd�stdin�capture_output�text�timeout�	exit_code�stdout�stderru&   انتهت مهلة تشغيل Python.i ���)r   �suffixr   r,   rV   �listr2   �int�floatr0   �sys�
+executable�extend�
+subprocess�runr	   r4   �DEVNULL�COMMAND_TIMEOUT�
+returncoderk   rl   �TimeoutExpiredr1   )	r
+   r   �argsr7   �	safe_args�value�command�resultr;   s	   &&&      r   �
+run_python�FileSystemTools.run_pythonh  s�  � � �z�z�$����;�;����%�'� �e��$�� � �|�|�~�~� �e��;�� �
+ �<��D����
+� 
+� �e��;�� � �	��E����c�5�!�� � �%��D�� � ����E�
+�� �( �N�N���I�
+��
+ 	����	
+�"	��^�^����K�K�)�)�� !�(�(�#���,�,�	�F� �f�'�'�1�,��V�.�.��&�-�-���0��&�-�-���0�	� �� �(�(� 	� �e��<�� � � 	� �e���Q��� ��	�s+   �0BE< �<F<�F<�"F<�#F7�1F<�7F<r   i    )r!   Fr   )�__name__�
+__module__�__qualname__�__firstlineno__�__doc__rI   rY   rw   r   r   r>   rK   rS   r]   rb   r   �__static_attributes__�__classdictcell__)�__classdict__s   @r   r   r      sO   �� � �� $�M�$�N��O���$]
+�F>�H�>;�B0�lh� hr   r   )�pathlibr   rt   rq   r   � r   r   �<module>r�      s   �� � � 
+�J� Jr   
+tools/__pycache__/system.cpython-314.pyc
+===== tools/__pycache__/system.cpython-314.pyc =====
++
+    ґj  �                   �:   � ^ RI t ^ RIt^ RIt^ RIt ! R R4      tR# )�    Nc                   �H   a � ] tR t^t o RtRR ltR tR	R ltR
+R ltRt	V t
+R# )�SystemToolsu�   
+أدوات النظام الخاصة بـ ALIX.
+
+لا يوجد تنفيذ Shell مفتوح.
+أوامر shell تمر أولاً عبر Policy.
+Nc                �   � Wn         R # �N��policy)�selfr   s   &&�tools/system.py�__init__�SystemTools.__init__   s   � ���    c                �D  �  \         P                  ! R 4      pRRR\        P                  ! 4       R\        P                  ! 4       R\        P                  ! 4       R\        P
+                  ! 4       R\        P                  ! 4       R\        P                  ! 4       R	\        P                  ! 4       R
+\        \        P                  P                  R4      4      RVP                  RVP                  RVP                  /#   \          d   pRRR\        T4      /u Rp?# Rp?ii ; i)�/�okT�platform�system�release�machine�	processor�python�	cpu_count�home�~�
+disk_total�	disk_used�	disk_freeF�errorN)�shutil�
+disk_usager   r   r   r   r   �python_version�osr   �str�path�
+expanduser�total�used�free�	Exception)r	   �disk�es   &  r
+   �system_info�SystemTools.system_info   s�   � �	��$�$�S�)�D� �d��H�-�-�/��(�/�/�+��8�+�+�-��8�+�+�-��X�/�/�1��(�1�1�3��R�\�\�^����G�G�&�&�s�+�� �d�j�j��T�Y�Y��T�Y�Y�� ��" � 	� �e���Q��� ��	�s   �C8C; �;D�D�D�Dc           
+     ��  � V P                   f   RRRR/# \        V\        4      '       g   RRRR/# VP                  4       pV'       g   RRRR/# V P                   P	                  V4      '       g   RRRR/#  \        V4      p\        ^\        V^<4      4      p \        P                  ! VR\        V P                   P                  4      \        P                  RRVR	7      pRVP                  ^ 8H  R
+VP                  RVP                  RR  RVP                  RR  /#   \         d    ^p L�i ; i  \        P                    d    RRRRT R2/u # \         d   pRRR\        T4      /u R p?# R p?ii ; i)Nr   Fr   �   Policy غير متوفرة.u&   command يجب أن يكون نصًا.u   الأمر فارغ.u<   تم رفض الأمر بواسطة سياسة الأمان.T)�shell�cwd�stdin�capture_output�text�timeout�	exit_code�stdout�stderru   انتهت المهلة بعد u    ثانية.� ���)r   �
+isinstancer"   �strip�command_allowed�intr(   �max�min�
+subprocess�run�	workspace�DEVNULL�
+returncoder6   r7   �TimeoutExpired)r	   �commandr4   �resultr*   s   &&&  r
+   �run_command�SystemTools.run_command7   s�  � � �;�;�� �e��1�� � ���
+� 
+� �e��<�� � �-�-�/��� �e��/�� � �{�{�*�*��
+� 
+�
+ �e��/�� �	��'�l�G� ������
+��$	��^�^�����K�K�)�)�� !�(�(�#���
+�F� �f�'�'�1�,��V�.�.��&�-�-���0��&�-�-���0�	� ��7 � 	��G�	��D �(�(� 	� �e��5��i�|�-�� � � 	� �e���Q��� ��	�s=   �7D �BD/ �D,�+D,�/E3�E3�E3�E.�(E3�.E3c           
+     �V  � V P                   f   RRRR/# V P                   P                  V4      pVf   RRRR/# VP                  4       '       g   RRRR/#  \        P                  ! RR\        V4      R	R
+R.\        V P                   P                  4      \        P                  RR^R7      pRVP                  ^ 8H  RVP                  RVP                  RR  RVP                  RR  /#   \        P                   d
+    RRRR/u # \         d   pRRR\        T4      /u R p?# R p?ii ; i)Nr   Fr   r.   u&   المسار خارج مساحة ALIX.u   المسار غير موجود.�gitz-C�statusz--shortz--branchT)r0   r1   r2   r3   r4   r5   r6   r7   u   انتهت مهلة Git.r8   i`���)r   �resolve_path�existsr?   r@   r"   rA   rB   rC   r6   r7   rD   r(   )r	   r#   �targetrF   r*   s   &&   r
+   �
+git_status�SystemTools.git_status�   sq  � ��;�;�� �e��1�� � ���)�)��
+�� �>� �e��<�� � �}�}��� �e��5�� �)	��^�^�����K����� ��K�K�)�)�� !�(�(�#����F�& �f�'�'�1�,��V�.�.��&�-�-���0��&�-�-���/�	� �� �(�(� 	� �e��.�� � � 	� �e���Q��� ��	�s+   �BC( �(D(�D(�D(�D#�D(�#D(r   r   )�   )�.)�__name__�
+__module__�__qualname__�__firstlineno__�__doc__r   r+   rG   rO   �__static_attributes__�__classdictcell__)�__classdict__s   @r
+   r   r      s(   �� � ����Bm�fJ� Jr   r   )r!   r   r   r?   r   � r   r
+   �<module>r\      s   �� 	� � � �m� mr   
+tools/__pycache__/__init__.cpython-314.pyc
+===== tools/__pycache__/__init__.cpython-314.pyc =====
++
+    �ˑj    �                   �   � R # )N� r   �    �=/data/data/com.termux/files/home/ALIX-Agent/tools/__init__.py�<module>r      s   �r   
+
+===== CONFIG =====

@@ -1,0 +1,1077 @@
+from __future__ import annotations
+
+import re
+import shlex
+from pathlib import Path
+from typing import Optional
+
+
+class Policy:
+    """
+    ALIX Security Policy Engine — Hardened Edition.
+
+    مبدأ التصميم:
+        LLM
+          ↓
+        Policy
+          ↓
+        SafeExecutor
+          ↓
+        OS
+
+    الـ Policy هي السلطة النهائية ولا يمكن للنموذج تجاوزها.
+
+    المسؤوليات:
+    - عزل جميع عمليات الملفات داخل workspace.
+    - منع Path Traversal.
+    - منع الوصول إلى ملفات النظام.
+    - منع الملفات الحساسة والأسرار.
+    - منع shell injection و shell operators.
+    - Allowlist للأوامر.
+    - تقييد Git إلى أوامر قراءة فقط.
+    - حماية من symlink escape.
+    - حدود صارمة للحجم والطول.
+    - تصنيف الأدوات حسب مستوى الخطورة.
+    """
+
+    def __init__(self):
+        # =========================================================
+        # Workspace
+        # =========================================================
+
+        self.base_dir = (Path.home() / "ALIX-Agent").resolve()
+        self.workspace = (self.base_dir / "workspace").resolve()
+
+        self.workspace.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        # =========================================================
+        # Permission Levels
+        # =========================================================
+
+        self.permission_levels = {
+            "read": 0,
+            "write": 1,
+            "execute": 2,
+            "destructive": 3,
+        }
+
+        self.tool_permissions = {
+            "list_files": "read",
+            "read_file": "read",
+            "search_files": "read",
+            "system_info": "read",
+            "git_status": "read",
+            "verify_file": "read",
+
+            "write_file": "write",
+            "create_directory": "write",
+            "remember_fact": "write",
+
+            "run_python": "execute",
+            "run_command": "execute",
+
+            "delete_file": "destructive",
+        }
+
+        # =========================================================
+        # Command Allowlist
+        # =========================================================
+
+        self.allowed_commands = {
+            # Navigation / inspection
+            "pwd",
+            "ls",
+            "cat",
+            "head",
+            "tail",
+            "grep",
+            "find",
+            "wc",
+            "sort",
+            "uniq",
+            "cut",
+            "tr",
+            "echo",
+            "printf",
+            "date",
+            "whoami",
+            "uname",
+            "df",
+            "du",
+            "free",
+            "file",
+            "which",
+
+            # Python
+            "python",
+            "python3",
+
+            # Git
+            "git",
+        }
+
+        # =========================================================
+        # Explicitly Blocked Commands
+        # =========================================================
+
+        self.blocked_commands = {
+            "rm",
+            "rmdir",
+            "unlink",
+            "mkfs",
+            "mkfs.ext4",
+            "dd",
+
+            "chmod",
+            "chown",
+            "chgrp",
+            "setfacl",
+
+            "mount",
+            "umount",
+
+            "su",
+            "sudo",
+            "doas",
+
+            "reboot",
+            "shutdown",
+            "poweroff",
+            "halt",
+
+            "kill",
+            "pkill",
+            "killall",
+
+            "iptables",
+            "ip6tables",
+            "nft",
+
+            "termux-chroot",
+            "proot",
+            "proot-distro",
+
+            "passwd",
+            "useradd",
+            "userdel",
+            "usermod",
+
+            "crontab",
+
+            "ssh",
+            "scp",
+            "sftp",
+
+            "nc",
+            "netcat",
+            "ncat",
+
+            "telnet",
+
+            "curl",
+            "wget",
+
+            "busybox",
+
+            "env",
+            "printenv",
+
+            "bash",
+            "sh",
+            "zsh",
+            "fish",
+
+            "docker",
+            "podman",
+
+            "mountpoint",
+        }
+
+        # =========================================================
+        # Git Read-Only Allowlist
+        # =========================================================
+
+        self.allowed_git_commands = {
+            "status",
+            "log",
+            "diff",
+            "show",
+            "branch",
+            "rev-parse",
+            "tag",
+        }
+
+        # Git options that can alter repository state or execute
+        # external programs are forbidden.
+        self.blocked_git_tokens = {
+            "--exec",
+            "--upload-pack",
+            "--receive-pack",
+            "--config",
+            "-c",
+            "--work-tree",
+            "--git-dir",
+            "--bare",
+            "--template",
+            "--paginate",
+            "--no-pager",
+        }
+
+        # =========================================================
+        # Sensitive Names
+        # =========================================================
+
+        self.sensitive_names = {
+            ".env",
+            ".env.local",
+            ".env.production",
+            ".env.development",
+            ".env.test",
+
+            ".git-credentials",
+            ".gitconfig",
+
+            "credentials",
+            "credentials.json",
+
+            "id_rsa",
+            "id_ed25519",
+            "id_ecdsa",
+
+            "authorized_keys",
+
+            "passwords.txt",
+            "password.txt",
+
+            "secrets.txt",
+            "secret.txt",
+            "secret.json",
+            "secrets.json",
+
+            "tokens.json",
+            "token.json",
+
+            "apikey.txt",
+            "api_keys.txt",
+
+            ".npmrc",
+            ".pypirc",
+            ".netrc",
+        }
+
+        self.sensitive_directories = {
+            ".ssh",
+            ".gnupg",
+            ".aws",
+            ".config/gcloud",
+        }
+
+        self.sensitive_extensions = {
+            ".pem",
+            ".key",
+            ".p12",
+            ".pfx",
+            ".crt",
+            ".cer",
+            ".der",
+        }
+
+        # =========================================================
+        # Dangerous Patterns
+        # =========================================================
+
+        self.blocked_patterns = [
+            # Shell operators
+            r";",
+            r"&&",
+            r"\|\|",
+            r"\|",
+
+            # Command substitution
+            r"`",
+            r"\$\(",
+            r"\$\{",
+
+            # Redirection
+            r">\s*",
+            r"<\s*",
+
+            # Traversal
+            r"(?:^|/)\.\.(?:/|$)",
+            r"~\/\.\.",
+
+            # Absolute system paths
+            r"(?:^|/)(etc|proc|sys|dev|root|system|vendor)(?:/|$)",
+
+            # Android internals
+            r"/data/data",
+            r"/data/user",
+            r"/data/local",
+            r"/system/",
+            r"/vendor/",
+
+            # Privilege escalation
+            r"\bsudo\b",
+            r"\bsu\b",
+            r"\bdoas\b",
+
+            # Service control
+            r"\bsystemctl\b",
+            r"\bservice\b",
+
+            # Shell execution
+            r"\bbash\s+-c\b",
+            r"\bsh\s+-c\b",
+            r"\bzsh\s+-c\b",
+
+            # Inline code execution
+            r"\bpython\s+-c\b",
+            r"\bpython3\s+-c\b",
+
+            # Network download + execution
+            r"\bcurl\b.*\b(sh|bash|python|python3)\b",
+            r"\bwget\b.*\b(sh|bash|python|python3)\b",
+
+            # Execution helpers
+            r"\bxargs\b",
+            r"\beval\b",
+            r"\bexec\b",
+
+            # Background execution
+            r"&\s*$",
+
+            # Null byte
+            r"\x00",
+        ]
+
+        # =========================================================
+        # Resource Limits
+        # =========================================================
+
+        self.max_command_length = 1000
+        self.max_path_length = 500
+        self.max_search_pattern_length = 200
+
+        # Maximum number of arguments for a command.
+        self.max_command_args = 32
+
+        # Prevent absurdly long individual arguments.
+        self.max_argument_length = 500
+
+        # =========================================================
+        # Path Security
+        # =========================================================
+
+    def resolve_path(self, path: str) -> Optional[Path]:
+        """
+        Resolve a path and ensure that it remains inside workspace.
+
+        Security properties:
+        - Rejects non-string values.
+        - Rejects NUL bytes.
+        - Rejects oversized paths.
+        - Resolves .. components.
+        - Rejects workspace escape.
+        """
+
+        if not isinstance(path, str):
+            return None
+
+        if len(path) > self.max_path_length:
+            return None
+
+        path = path.strip()
+
+        if not path:
+            path = "."
+
+        if "\x00" in path:
+            return None
+
+        try:
+            candidate = Path(path)
+
+            if not candidate.is_absolute():
+                candidate = self.workspace / candidate
+
+            candidate = candidate.resolve(strict=False)
+
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+        ):
+            return None
+
+        if not self.path_allowed(candidate):
+            return None
+
+        return candidate
+
+    def path_allowed(self, path: Path) -> bool:
+        """
+        Verify that path is physically located under workspace.
+
+        Uses resolved paths to defend against:
+        - ../ traversal
+        - absolute path escape
+        - symlink escape
+        """
+
+        try:
+            path = Path(path).resolve(strict=False)
+            workspace = self.workspace.resolve(strict=False)
+
+            if path == workspace:
+                return True
+
+            return workspace in path.parents
+
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+        ):
+            return False
+
+    def is_sensitive_path(self, path: Path) -> bool:
+        """
+        Detect sensitive paths.
+
+        Any path outside workspace is automatically sensitive.
+        """
+
+        try:
+            path = Path(path).resolve(strict=False)
+            workspace = self.workspace.resolve(strict=False)
+
+            # Outside workspace = forbidden.
+            if path != workspace and workspace not in path.parents:
+                return True
+
+            # Check every path component.
+            for part in path.parts:
+                if part in self.sensitive_names:
+                    return True
+
+                if part in self.sensitive_directories:
+                    return True
+
+            # Extension protection.
+            if path.suffix.lower() in self.sensitive_extensions:
+                return True
+
+            return False
+
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+        ):
+            return True
+
+    def validate_file_path(
+        self,
+        path: str,
+        allow_sensitive: bool = False,
+    ) -> Optional[Path]:
+        """
+        Centralized file-path validation.
+        """
+
+        target = self.resolve_path(path)
+
+        if target is None:
+            return None
+
+        if not allow_sensitive and self.is_sensitive_path(target):
+            return None
+
+        return target
+
+    # =============================================================
+    # Command Security
+    # =============================================================
+
+    def parse_command(
+        self,
+        command: str,
+    ) -> Optional[list[str]]:
+        """
+        Parse a command without executing it.
+
+        shell=True is never used by SafeExecutor.
+        """
+
+        if not isinstance(command, str):
+            return None
+
+        command = command.strip()
+
+        if not command:
+            return None
+
+        if len(command) > self.max_command_length:
+            return None
+
+        if "\x00" in command:
+            return None
+
+        # Reject dangerous syntax before shlex parsing.
+        for pattern in self.blocked_patterns:
+            if re.search(
+                pattern,
+                command,
+                flags=re.IGNORECASE,
+            ):
+                return None
+
+        try:
+            parts = shlex.split(
+                command,
+                posix=True,
+            )
+        except ValueError:
+            return None
+
+        if not parts:
+            return None
+
+        if len(parts) > self.max_command_args:
+            return None
+
+        for part in parts:
+            if len(part) > self.max_argument_length:
+                return None
+
+            if "\x00" in part:
+                return None
+
+        return parts
+
+    def _command_has_forbidden_path(
+        self,
+        parts: list[str],
+    ) -> bool:
+        """
+        Detect arguments that attempt to reference system paths.
+
+        This is deliberately conservative.
+        """
+
+        for arg in parts[1:]:
+            if not isinstance(arg, str):
+                return True
+
+            if "\x00" in arg:
+                return True
+
+            # Absolute system locations.
+            if re.search(
+                r"^(?:/etc|/proc|/sys|/dev|/root|/system|/vendor)(?:/|$)",
+                arg,
+                flags=re.IGNORECASE,
+            ):
+                return True
+
+            if arg.startswith("/data/data"):
+                return True
+
+            if arg.startswith("/data/user"):
+                return True
+
+            # Explicit traversal.
+            if ".." in Path(arg).parts:
+                return True
+
+        return False
+
+    def _git_command_allowed(
+        self,
+        parts: list[str],
+    ) -> bool:
+        """
+        Strict Git read-only validation.
+
+        Git is restricted to explicitly approved read-only commands.
+        """
+
+        if not isinstance(parts, list):
+            return False
+
+        if len(parts) < 2:
+            return False
+
+        action = parts[1]
+
+        if action not in self.allowed_git_commands:
+            return False
+
+        blocked_exact = {
+            "-c",
+            "--config",
+            "--exec-path",
+            "--git-dir",
+            "--work-tree",
+            "--super-prefix",
+            "--namespace",
+            "--upload-pack",
+            "--receive-pack",
+            "--paginate",
+            "--no-pager",
+            "--help",
+            "-h",
+        }
+
+        blocked_prefixes = (
+            "--config=",
+            "--exec-path=",
+            "--git-dir=",
+            "--work-tree=",
+            "--super-prefix=",
+            "--namespace=",
+            "--upload-pack=",
+            "--receive-pack=",
+        )
+
+        for token in parts[1:]:
+            if not isinstance(token, str):
+                return False
+
+            lowered = token.lower()
+
+            if token in self.blocked_git_tokens:
+                return False
+
+            if token in blocked_exact:
+                return False
+
+            if lowered.startswith(blocked_prefixes):
+                return False
+
+            if lowered.startswith("--git-dir"):
+                return False
+
+            if lowered.startswith("--work-tree"):
+                return False
+
+            if lowered.startswith("--exec-path"):
+                return False
+
+            if lowered.startswith("--config"):
+                return False
+
+            if lowered.startswith("--upload-pack"):
+                return False
+
+            if lowered.startswith("--receive-pack"):
+                return False
+
+            if token.startswith("/"):
+                return False
+
+            if ".." in Path(token).parts:
+                return False
+
+            if any(char in token for char in (
+                "`",
+                "$",
+                ";",
+                "|",
+                ">",
+                "<",
+            )):
+                return False
+
+        return True
+        لا يسمح بتنفيذ الأمر إلا إذا اجتاز جميع طبقات
+        التحقق الأمني:
+
+        1. Parsing آمن.
+        2. Explicit deny.
+        3. Allowlist.
+        4. منع المسارات الحساسة.
+        5. منع shell/subprocess tricks.
+        6. قيود خاصة بـ Python.
+        7. قيود خاصة بـ Git.
+        8. منع تمرير خيارات خطرة لبعض الأدوات.
+        """
+
+        # ---------------------------------------------------------
+        # 1. Parse
+        # ---------------------------------------------------------
+        parts = self.parse_command(command)
+
+        if not parts:
+            return False
+
+        executable = Path(parts[0]).name.lower()
+
+        # ---------------------------------------------------------
+        # 2. Explicit deny takes precedence
+        # ---------------------------------------------------------
+        if executable in self.blocked_commands:
+            return False
+
+        # ---------------------------------------------------------
+        # 3. Explicit allowlist
+        # ---------------------------------------------------------
+        if executable not in self.allowed_commands:
+            return False
+
+        # ---------------------------------------------------------
+        # 4. Never allow system/sensitive paths
+        # ---------------------------------------------------------
+        if self._command_has_forbidden_path(parts):
+            return False
+
+        # ---------------------------------------------------------
+        # 5. Defense-in-depth:
+        # parse_command already blocks these, but keep this
+        # layer here in case command parsing changes later.
+        # ---------------------------------------------------------
+        dangerous_tokens = {
+            ";",
+            "&&",
+            "||",
+            "|",
+            "`",
+            "$(",
+            "${",
+            ">",
+            "<",
+        }
+
+        for token in parts:
+            if any(op in token for op in dangerous_tokens):
+                return False
+
+        # ---------------------------------------------------------
+        # 6. Python restrictions
+        # ---------------------------------------------------------
+        if executable in {"python", "python3"}:
+
+            # Never allow inline Python.
+            if "-c" in parts:
+                return False
+
+            # Never allow Python module execution.
+            if "-m" in parts:
+                return False
+
+            # Never allow interactive mode.
+            if "-i" in parts:
+                return False
+
+            # Python must execute an explicit .py file.
+            script_args = [
+                arg for arg in parts[1:]
+                if not arg.startswith("-")
+            ]
+
+            if not script_args:
+                return False
+
+            script = script_args[0]
+
+            # Only Python files are executable.
+            if not script.lower().endswith(".py"):
+                return False
+
+            # Python script path must remain inside workspace.
+            script_path = self.resolve_path(script)
+
+            if script_path is None:
+                return False
+
+            if not self.path_allowed(script_path):
+                return False
+
+            if self.is_sensitive_path(script_path):
+                return False
+
+        # ---------------------------------------------------------
+        # 7. Git restrictions
+        # ---------------------------------------------------------
+        if executable == "git":
+            return self._git_command_allowed(parts)
+
+        # ---------------------------------------------------------
+        # 8. Restrict potentially dangerous arguments
+        # ---------------------------------------------------------
+        forbidden_arguments = {
+            "--help-all",
+            "--exec-path",
+            "--upload-pack",
+            "--receive-pack",
+            "--config-env",
+        }
+
+        for arg in parts[1:]:
+            if arg in forbidden_arguments:
+                return False
+        # ---------------------------------------------------------
+        # 9. Sensitive file/directory protection
+        # ---------------------------------------------------------
+        # يمنع Terminal من الوصول إلى أسماء الملفات الحساسة
+        # حتى لو كان الأمر نفسه موجودًا في allowlist.
+        for arg in parts[1:]:
+            if not isinstance(arg, str):
+                return False
+
+            # تجاهل الخيارات العامة مثل --verbose
+            if arg.startswith("-"):
+                continue
+
+            candidate = self.resolve_path(arg)
+
+            if candidate is not None:
+                if self.is_sensitive_path(candidate):
+                    return False
+
+            # تحقق إضافي من أسماء الملفات الحساسة حتى عندما
+            # يكون المسار غير موجود بعد.
+            try:
+                normalized = arg.replace("\\", "/").strip("/")
+                components = [
+                    part
+                    for part in normalized.split("/")
+                    if part not in {"", "."}
+                ]
+
+                for component in components:
+                    if component in self.sensitive_names:
+                        return False
+
+                    if component in self.sensitive_directories:
+                        return False
+
+                suffix = Path(arg).suffix.lower()
+
+                if suffix in self.sensitive_extensions:
+                    return False
+
+            except (OSError, RuntimeError, ValueError):
+                return False
+        # ---------------------------------------------------------
+        # 10. Absolute paths are not allowed for commands.
+        # Relative paths are validated by the executor/workspace.
+        # ---------------------------------------------------------
+        for arg in parts[1:]:
+            if arg.startswith("/"):
+                return False
+
+            # Explicit traversal attempt.
+            if arg == ".." or arg.startswith("../") or "/../" in arg:
+                return False
+
+        # ---------------------------------------------------------
+        # 10. Final authorization
+        # ---------------------------------------------------------
+        return True
+
+    # =============================================================
+    # Tool Security
+    # =============================================================
+
+    def tool_allowed(
+        self,
+        tool_name: str,
+    ) -> bool:
+        """
+        Verify that the tool is registered.
+        """
+
+        if not isinstance(tool_name, str):
+            return False
+
+        return tool_name in self.tool_permissions
+
+    def tool_permission(
+        self,
+        tool_name: str,
+    ) -> Optional[str]:
+        """
+        Return permission level for a tool.
+        """
+
+        return self.tool_permissions.get(tool_name)
+
+    def permission_level(
+        self,
+        tool_name: str,
+    ) -> int:
+        """
+        Convert permission level to numeric value.
+        """
+
+        level = self.tool_permission(tool_name)
+
+        if level is None:
+            return -1
+
+        return self.permission_levels[level]
+
+    def requires_confirmation(
+        self,
+        action: str,
+    ) -> bool:
+        """
+        Writes, execution and destructive operations require
+        interactive confirmation.
+        """
+
+        level = self.tool_permission(action)
+
+        return level in {
+            "write",
+            "execute",
+            "destructive",
+        }
+
+    def requires_explicit_confirmation(
+        self,
+        action: str,
+    ) -> bool:
+        """
+        Destructive operations require explicit confirmation.
+        """
+
+        return self.tool_permission(action) == "destructive"
+
+    # =============================================================
+    # Search Security
+    # =============================================================
+
+    def validate_search_pattern(
+        self,
+        pattern: str,
+    ) -> bool:
+        """
+        Validate a search pattern.
+        """
+
+        if not isinstance(pattern, str):
+            return False
+
+        pattern = pattern.strip()
+
+        if not pattern:
+            return False
+
+        if len(pattern) > self.max_search_pattern_length:
+            return False
+
+        if "\x00" in pattern:
+            return False
+
+        return True
+
+    # =============================================================
+    # Content Security
+    # =============================================================
+
+    def validate_write_content(
+        self,
+        content: str,
+        max_bytes: int = 2_000_000,
+    ) -> bool:
+        """
+        Validate content before writing.
+
+        Default maximum:
+            2 MB
+        """
+
+        if not isinstance(content, str):
+            return False
+
+        if "\x00" in content:
+            return False
+
+        try:
+            size = len(content.encode("utf-8"))
+        except UnicodeError:
+            return False
+
+        return size <= max_bytes
+
+    # =============================================================
+    # Tool Argument Security
+    # =============================================================
+
+    def validate_tool_arguments(
+        self,
+        tool_name: str,
+        arguments: dict,
+    ) -> bool:
+        """
+        Generic validation layer before tool execution.
+
+        This does not replace per-tool validation.
+        It provides an additional security boundary.
+        """
+
+        if not self.tool_allowed(tool_name):
+            return False
+
+        if not isinstance(arguments, dict):
+            return False
+
+        # Limit number of arguments.
+        if len(arguments) > 16:
+            return False
+
+        # Reject obviously malformed values.
+        for key, value in arguments.items():
+            if not isinstance(key, str):
+                return False
+
+            if len(key) > 100:
+                return False
+
+            if isinstance(value, str):
+                if len(value) > 2_000_000:
+                    return False
+
+                if "\x00" in value:
+                    return False
+
+        return True
+
+    # =============================================================
+    # Security Summary
+    # =============================================================
+
+    def security_summary(self) -> dict:
+        """
+        Safe diagnostic information.
+
+        Never returns API keys, secrets or environment variables.
+        """
+
+        return {
+            "workspace": str(self.workspace),
+
+            "workspace_isolation": True,
+            "symlink_escape_protection": True,
+
+            "sensitive_file_protection": True,
+            "command_allowlist": True,
+            "blocked_command_list": True,
+
+            "git_restricted": True,
+            "python_restricted": True,
+
+            "confirmation_required": True,
+            "destructive_confirmation": True,
+
+            "max_command_length": self.max_command_length,
+            "max_command_args": self.max_command_args,
+            "max_argument_length": self.max_argument_length,
+            "max_path_length": self.max_path_length,
+            "max_search_pattern_length": self.max_search_pattern_length,
+        }

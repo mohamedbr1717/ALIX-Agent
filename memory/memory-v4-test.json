@@ -1,0 +1,24 @@
+{
+  "facts": [
+    {
+      "key": "agent_name",
+      "value": "ALIX V4"
+    },
+    {
+      "key": "environment",
+      "value": "Termux Android"
+    }
+  ],
+  "preferences": [
+    {
+      "key": "language",
+      "value": "Arabic"
+    }
+  ],
+  "history": [
+    {
+      "user": "مرحبا ALIX",
+      "assistant": "مرحبا! كيف أساعدك؟"
+    }
+  ]
+}
