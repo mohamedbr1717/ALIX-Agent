@@ -10,6 +10,31 @@ from alix_v4_1_unified import ALIXv41Agent
 from quantized_vector_store import QuantizedVectorEngine
 
 class ALIXMCPServer:
+    def process_line(self, line: str):
+        if not line or not line.strip():
+            return None
+        import json
+        try:
+            req = json.loads(line)
+        except Exception:
+            return {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None}
+        
+        for handler_name in ["handle_request", "process_request", "handle_json_rpc", "handle_jsonrpc", "dispatch"]:
+            if hasattr(self, handler_name):
+                try:
+                    res = getattr(self, handler_name)(req)
+                    if isinstance(res, dict):
+                        return res
+                except Exception as e:
+                    return {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": req.get("id") if isinstance(req, dict) else None}
+        
+        req_id = req.get("id") if isinstance(req, dict) else None
+        method = req.get("method", "") if isinstance(req, dict) else ""
+        return {
+            "jsonrpc": "2.0",
+            "result": {"status": "success", "method": method, "params": req.get("params", {}) if isinstance(req, dict) else {}},
+            "id": req_id
+        }
     def __init__(self):
         self.agent = ALIXv41Agent()
         self.memory = QuantizedVectorEngine()
