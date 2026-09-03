@@ -1,100 +1,92 @@
-import json
 import sys
+import json
+import io
+
+# توجيه الطباعة العامة إلى stderr لحماية مجرى JSON-RPC على stdout
+real_stdout = sys.stdout
+sys.stdout = sys.stderr
+
 from alix_v4_1_unified import ALIXv41Agent
+from quantized_vector_store import QuantizedVectorEngine
 
 class ALIXMCPServer:
     def __init__(self):
         self.agent = ALIXv41Agent()
+        self.memory = QuantizedVectorEngine()
+        self.memory.add_document("doc1", "ALIX AST sandbox execution policy")
 
-    def get_tools_schema(self):
-        return [
-            {
-                "name": "alix_execute_code",
-                "description": "Evaluates code safety via AST Policy Enforcer and executes clean payloads.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "code": {"type": "string", "description": "Python code snippet to validate and execute."},
-                        "context_query": {"type": "string", "description": "Optional search term to retrieve context prior to execution."}
-                    },
-                    "required": ["code"]
-                }
-            },
-            {
-                "name": "alix_search_memory",
-                "description": "Queries the sub-millisecond vector store for relevant prior context.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search term for memory retrieval."}
-                    },
-                    "required": ["query"]
-                }
-            }
-        ]
+    def send_response(self, response_dict):
+        # كتابة الاستجابة النظيفة حصرياً على stdout الحقيقي
+        real_stdout.write(json.dumps(response_dict) + "\n")
+        real_stdout.flush()
 
-    def handle_request(self, request):
-        req_id = request.get("id")
-        method = request.get("method")
-        params = request.get("params", {})
+    def handle_request(self, req):
+        msg_id = req.get("id")
+        method = req.get("method")
+        params = req.get("params", {})
 
         if method == "initialize":
             return {
                 "jsonrpc": "2.0",
-                "id": req_id,
+                "id": msg_id,
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "alix-mcp-server", "version": "4.1.0"}
+                    "serverInfo": {"name": "alix-mcp-server", "version": "5.0.0"}
                 }
             }
-
         elif method == "tools/list":
             return {
                 "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {"tools": self.get_tools_schema()}
+                "id": msg_id,
+                "result": {
+                    "tools": [
+                        {
+                            "name": "alix_execute_code",
+                            "description": "Evaluates code safety via AST Policy Enforcer and executes clean payloads.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"code": {"type": "string"}},
+                                "required": ["code"]
+                            }
+                        },
+                        {
+                            "name": "alix_search_memory",
+                            "description": "Queries the quantized INT8 vector store.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"query": {"type": "string"}},
+                                "required": ["query"]
+                            }
+                        }
+                    ]
+                }
             }
-
         elif method == "tools/call":
             tool_name = params.get("name")
             args = params.get("arguments", {})
-
+            
             if tool_name == "alix_execute_code":
-                res = self.agent.execute_task(args.get("code"), args.get("context_query"))
-                return {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False)}]}
-                }
-
+                res = self.agent.execute_task(args.get("code", ""))
+                return {"jsonrpc": "2.0", "id": msg_id, "result": {"content": [{"type": "text", "text": str(res)}]}}
             elif tool_name == "alix_search_memory":
-                matches, latency = self.agent.memory.search(args.get("query"))
-                return {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {"content": [{"type": "text", "text": json.dumps({"matches": matches, "latency_ms": latency}, ensure_ascii=False)}]}
-                }
+                matches, latency = self.memory.search(args.get("query", ""))
+                return {"jsonrpc": "2.0", "id": msg_id, "result": {"content": [{"type": "text", "text": f"Matches: {matches}, Latency: {latency:.4f}ms"}]}}
 
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "error": {"code": -32601, "message": f"Method {method} not found"}
-        }
+        return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": "Method not found"}}
 
-    def process_line(self, line):
-        if not line.strip():
-            return None
-        try:
-            req = json.loads(line)
-            return self.handle_request(req)
-        except Exception as e:
-            return {"jsonrpc": "2.0", "id": None, "error": {"code": -32603, "message": str(e)}}
+    def run(self):
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                req = json.loads(line)
+                res = self.handle_request(req)
+                self.send_response(res)
+            except Exception as e:
+                self.send_response({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": str(e)}})
 
 if __name__ == "__main__":
     server = ALIXMCPServer()
-    for line in sys.stdin:
-        resp = server.process_line(line)
-        if resp:
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
+    server.run()
