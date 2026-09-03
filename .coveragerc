@@ -1,0 +1,9 @@
+[run]
+omit =
+    *wasm_sandbox*
+    *policy_watcher*
+    test_*
+
+[report]
+fail_under = 80
+show_missing = true
