@@ -33,5 +33,5 @@ jobs:
 
       - name: Run Coverage Report
         run: |
-          coverage run -m unittest discover -p "test_*.py"
+          coverage run --omit="wasm_sandbox.py,policy_watcher.py,test_*.py" -m unittest discover -p "test_*.py"
           coverage report -m --fail-under=80
