@@ -1,7 +1,7 @@
 [run]
 omit =
-    *wasm_sandbox*
-    *policy_watcher*
+    wasm_sandbox.py
+    policy_watcher.py
     test_*
 
 [report]
