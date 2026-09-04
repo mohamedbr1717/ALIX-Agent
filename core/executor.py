@@ -864,12 +864,29 @@ class SafeExecutor:
                 },
             ).to_dict()
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             return self._base_result(
                 "run_python",
                 started,
                 False,
                 f"انتهت مهلة Python ({self.python_timeout} ثانية).",
+                stdout=self._truncate(
+                    exc.stdout or exc.output or "",
+                    self.max_output,
+                ),
+                stderr=self._truncate(
+                    exc.stderr or "",
+                    2000,
+                ),
+                evidence={
+                    "script": str(
+                        target.relative_to(
+                            self.policy.workspace
+                        )
+                    ),
+                    "timed_out": True,
+                    "verified": False,
+                },
             ).to_dict()
 
         except Exception as exc:
@@ -926,11 +943,19 @@ class SafeExecutor:
                     "error": str(exc)
                 }
 
+        all_success = (
+            len(results) == 2
+            and all("error" not in item for item in results.values())
+            and all(item.get("returncode") == 0 for item in results.values())
+        )
+
         return self._base_result(
             "system_info",
             started,
-            True,
-            "تم جمع معلومات النظام.",
+            all_success,
+            "تم جمع معلومات النظام."
+            if all_success
+            else "فشل جزئي في جمع معلومات النظام.",
             evidence=results,
         ).to_dict()
 
@@ -1016,6 +1041,11 @@ class SafeExecutor:
                 started,
                 False,
                 f"فشل Git: {exc}",
+                evidence={
+                    "git_action": action,
+                    "read_only": True,
+                    "verified": False,
+                },
             ).to_dict()
 
     # ============================================================
