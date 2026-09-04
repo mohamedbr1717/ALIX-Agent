@@ -16,6 +16,30 @@ class TestExecutorReliability(unittest.TestCase):
             python_timeout=1,
         )
 
+        self.timeout_script = self.policy.workspace / "test_timeout.py"
+        self.failure_script = self.policy.workspace / "test_failure.py"
+
+        self.timeout_script.write_text(
+            "import time\n"
+            "print('partial-output', flush=True)\n"
+            "time.sleep(3)\n",
+            encoding="utf-8",
+        )
+
+        self.failure_script.write_text(
+            "import sys\n"
+            "print('expected-failure')\n"
+            "sys.exit(7)\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        for path in (self.timeout_script, self.failure_script):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+
     def test_command_timeout_then_recovery(self):
         timeout_result = self.executor.run_command(
             "python3 test_timeout.py"
