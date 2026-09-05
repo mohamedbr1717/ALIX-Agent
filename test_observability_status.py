@@ -21,10 +21,22 @@ class TestObservabilityStatus(unittest.TestCase):
         # لا نريد إدخالًا تفاعليًا أثناء الاختبار.
         agent.confirm_tool = lambda name, arguments: True
 
+        # عزل الاختبار عن Policy الحقيقية.
+        agent.policy.tool_allowed = lambda name: True
+        agent.policy.validate_tool_arguments = (
+            lambda name, arguments: True
+        )
+        agent.policy.tool_permission = (
+            lambda name: "execute"
+        )
+
         return agent, log_file
 
     @staticmethod
     def records(log_file):
+        if not log_file.exists():
+            return []
+
         return [
             json.loads(line)
             for line in log_file.read_text(
@@ -37,10 +49,18 @@ class TestObservabilityStatus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             agent, log_file = self.make_agent(tmp)
 
-            result = agent.execute_tool(
+            with patch.object(
+                agent.executor,
                 "run_command",
-                {"command": "true"},
-            )
+                return_value={
+                    "ok": True,
+                    "evidence": {},
+                },
+            ):
+                result = agent.execute_tool(
+                    "run_command",
+                    {"command": "TEST_SUCCESS"},
+                )
 
             self.assertTrue(result["ok"])
 
@@ -52,17 +72,28 @@ class TestObservabilityStatus(unittest.TestCase):
             self.assertEqual(len(finished), 1)
             self.assertEqual(
                 finished[0]["status"],
-                "finished",
+                "success",
             )
 
     def test_failure_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent, log_file = self.make_agent(tmp)
 
-            result = agent.execute_tool(
+            with patch.object(
+                agent.executor,
                 "run_command",
-                {"command": "false"},
-            )
+                return_value={
+                    "ok": False,
+                    "error": "TEST_FAILURE",
+                    "evidence": {
+                        "returncode": 1,
+                    },
+                },
+            ):
+                result = agent.execute_tool(
+                    "run_command",
+                    {"command": "TEST_FAILURE"},
+                )
 
             self.assertFalse(result["ok"])
 
@@ -81,14 +112,21 @@ class TestObservabilityStatus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             agent, log_file = self.make_agent(tmp)
 
-            agent.executor.command_timeout = 1
-
-            result = agent.execute_tool(
+            with patch.object(
+                agent.executor,
                 "run_command",
-                {
-                    "command": "python -c \"import time; time.sleep(2)\""
+                return_value={
+                    "ok": False,
+                    "error": "TEST_TIMEOUT",
+                    "evidence": {
+                        "timed_out": True,
+                    },
                 },
-            )
+            ):
+                result = agent.execute_tool(
+                    "run_command",
+                    {"command": "TEST_TIMEOUT"},
+                )
 
             self.assertFalse(result["ok"])
             self.assertTrue(
@@ -113,7 +151,9 @@ class TestObservabilityStatus(unittest.TestCase):
             with patch.object(
                 agent.executor,
                 "system_info",
-                side_effect=RuntimeError("TEST_EXCEPTION"),
+                side_effect=RuntimeError(
+                    "TEST_EXCEPTION"
+                ),
             ):
                 result = agent.execute_tool(
                     "system_info",
@@ -122,10 +162,23 @@ class TestObservabilityStatus(unittest.TestCase):
 
             self.assertFalse(result["ok"])
 
+            records = self.records(log_file)
+
+            exceptions = [
+                r for r in records
+                if r["event"] == "tool_exception"
+            ]
+
             finished = [
-                r for r in self.records(log_file)
+                r for r in records
                 if r["event"] == "tool_finished"
             ]
+
+            self.assertEqual(len(exceptions), 1)
+            self.assertEqual(
+                exceptions[0]["status"],
+                "exception",
+            )
 
             self.assertEqual(len(finished), 1)
             self.assertEqual(
@@ -137,10 +190,18 @@ class TestObservabilityStatus(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             agent, log_file = self.make_agent(tmp)
 
-            agent.execute_tool(
+            with patch.object(
+                agent.executor,
                 "run_command",
-                {"command": "true"},
-            )
+                return_value={
+                    "ok": True,
+                    "evidence": {},
+                },
+            ):
+                agent.execute_tool(
+                    "run_command",
+                    {"command": "TEST_CORRELATION"},
+                )
 
             records = self.records(log_file)
 
@@ -169,9 +230,24 @@ class TestObservabilityStatus(unittest.TestCase):
                 finish["execution_id"],
             )
 
+            self.assertNotEqual(
+                start["execution_id"],
+                start["request_id"],
+            )
+
+            self.assertEqual(
+                start["status"],
+                "started",
+            )
+
             self.assertIn(
                 "latency_ms",
                 finish,
+            )
+
+            self.assertGreaterEqual(
+                finish["latency_ms"],
+                0,
             )
 
 
