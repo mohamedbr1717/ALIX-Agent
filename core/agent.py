@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from core.llm import HybridLLM
 from core.policy import Policy
 from core.memory import Memory
 from core.executor import SafeExecutor
+from core.observability import ObservabilityLogger
 
 
 load_dotenv(Path.home() / "ALIX-Agent" / ".env")
@@ -280,6 +282,13 @@ class ALIXAgent:
             exist_ok=True
         )
 
+        self.observability = ObservabilityLogger(
+            self.audit_log
+        )
+
+        # Correlation ID for the currently running user request.
+        self.current_request_id = None
+
     # ============================================================
     # Audit
     # ============================================================
@@ -287,43 +296,36 @@ class ALIXAgent:
     def audit(
         self,
         event: str,
-        data: dict[str, Any]
+        data: dict[str, Any],
+        *,
+        request_id: str | None = None,
+        execution_id: str | None = None,
+        status: str | None = None,
+        latency_ms: float | None = None,
     ):
         """
-        يسجل الأحداث بدون تخزين الأسرار.
+        Compatibility wrapper لـ Observability Core.
+
+        يحافظ على واجهة audit() الحالية
+        مع توحيد التسجيل عبر ObservabilityLogger.
         """
 
-        safe_data = dict(data)
-
-        # لا نسجل المحتوى الكامل للملفات أو الأسرار.
-        for key in (
-            "content",
-            "api_key",
-            "token",
-            "password",
-            "secret"
-        ):
-            safe_data.pop(key, None)
-
-        record = {
-            "event": event,
-            "data": safe_data
-        }
-
         try:
-            with self.audit_log.open(
-                "a",
-                encoding="utf-8"
-            ) as f:
-                f.write(
-                    json.dumps(
-                        record,
-                        ensure_ascii=False
-                    )
-                    + "\n"
-                )
+            return self.observability.emit(
+                event,
+                data,
+                request_id=(
+                    request_id
+                    if request_id is not None
+                    else self.current_request_id
+                ),
+                execution_id=execution_id,
+                status=status,
+                latency_ms=latency_ms,
+            )
         except Exception:
-            pass
+            # فشل الـ logging لا يجب أن يوقف ALIX.
+            return None
 
     # ============================================================
     # Confirmation
@@ -471,6 +473,9 @@ class ALIXAgent:
 
             return result
 
+        execution_id = self.observability.new_id()
+        tool_started = time.monotonic()
+
         self.audit(
             "tool_start",
             {
@@ -478,196 +483,238 @@ class ALIXAgent:
                 "permission": self.policy.tool_permission(
                     name
                 )
-            }
+            },
+            execution_id=execution_id,
+            status="started",
         )
 
+        result = None
+        final_status = "failure"
+
         try:
+            result = self._execute_tool_body(
+                name,
+                arguments,
+            )
 
-            if name == "list_files":
-                path = arguments.get(
-                    "path",
-                    "."
-                )
-
-                target = self.policy.validate_file_path(
-                    path
-                )
-
-                if target is None:
-                    return {
-                        "ok": False,
-                        "error": "المسار غير مسموح."
-                    }
-
-                if not target.exists():
-                    return {
-                        "ok": False,
-                        "error": "المسار غير موجود."
-                    }
-
-                if not target.is_dir():
-                    return {
-                        "ok": False,
-                        "error": "المسار ليس مجلدًا."
-                    }
-
-                items = []
-
-                for item in sorted(
-                    target.iterdir(),
-                    key=lambda p: p.name.lower()
-                ):
-                    if self.policy.is_sensitive_path(
-                        item
-                    ):
-                        continue
-
-                    items.append(
-                        {
-                            "name": item.name,
-                            "type": (
-                                "directory"
-                                if item.is_dir()
-                                else "file"
-                            )
-                        }
-                    )
-
-                return {
-                    "ok": True,
-                    "evidence": {
-                        "path": str(
-                            target.relative_to(
-                                self.policy.workspace
-                            )
-                        ),
-                        "items": items[:200]
-                    }
+            if not isinstance(result, dict):
+                result = {
+                    "ok": False,
+                    "error": "نتيجة الأداة غير صالحة."
                 }
 
-            elif name == "read_file":
-                return self.executor.read_file(
-                    arguments.get("path", ""),
-                    arguments.get("start_line", 1),
-                    arguments.get("end_line")
-                )
+            evidence = result.get("evidence", {})
 
-            elif name == "write_file":
-                return self.executor.write_file(
-                    arguments.get("path", ""),
-                    arguments.get("content", "")
-                )
+            if (
+                isinstance(evidence, dict)
+                and evidence.get("timed_out") is True
+            ):
+                final_status = "timeout"
+            elif result.get("ok") is True:
+                final_status = "success"
+            else:
+                final_status = "failure"
 
-            elif name == "create_directory":
-                return self.executor.create_directory(
-                    arguments.get("path", "")
-                )
-
-            elif name == "delete_file":
-                return self.executor.delete_file(
-                    arguments.get("path", "")
-                )
-
-            elif name == "search_files":
-                return self.executor.search_files(
-                    arguments.get("pattern", ""),
-                    arguments.get("path", ".")
-                )
-
-            elif name == "run_command":
-                return self.executor.run_command(
-                    arguments.get("command", "")
-                )
-
-            elif name == "run_python":
-                return self.executor.run_python(
-                    arguments.get("script_path", "")
-                )
-
-            elif name == "system_info":
-                return self.executor.system_info()
-
-            elif name == "git_status":
-                return self.executor.git_read_only(
-                    "status"
-                )
-
-            elif name == "remember_fact":
-
-                fact = str(
-                    arguments.get(
-                        "fact",
-                        ""
-                    )
-                ).strip()
-
-                if not fact:
-                    return {
-                        "ok": False,
-                        "error": "الذاكرة فارغة."
-                    }
-
-                is_preference = bool(
-                    arguments.get(
-                        "is_preference",
-                        False
-                    )
-                )
-
-                if is_preference:
-                    saved = self.memory.add_preference(
-                        fact
-                    )
-                else:
-                    saved = self.memory.add_fact(
-                        fact
-                    )
-
-                return {
-                    "ok": bool(saved),
-                    "evidence": {
-                        "saved": bool(saved),
-                        "type": (
-                            "preference"
-                            if is_preference
-                            else "fact"
-                        )
-                    }
-                }
-
-            elif name == "verify_file":
-                return self.executor.verify_file(
-                    arguments.get("path", "")
-                )
-
-            return {
-                "ok": False,
-                "error": f"أداة غير معالجة: {name}"
-            }
+            return result
 
         except Exception as exc:
+
+            final_status = "exception"
 
             self.audit(
                 "tool_exception",
                 {
                     "tool": name,
                     "error": str(exc)
-                }
+                },
+                execution_id=execution_id,
+                status="exception",
+                latency_ms=(
+                    time.monotonic() - tool_started
+                ) * 1000.0,
             )
 
-            return {
+            result = {
                 "ok": False,
                 "error": (
                     f"حدث خطأ أثناء تنفيذ الأداة: {exc}"
                 )
             }
 
-        finally:
+            return result
 
+        finally:
             self.audit(
                 "tool_finished",
-                {"tool": name}
+                {"tool": name},
+                execution_id=execution_id,
+                status=final_status,
+                latency_ms=(
+                    time.monotonic() - tool_started
+                ) * 1000.0,
             )
+
+
+    def _execute_tool_body(
+        self,
+        name: str,
+        arguments: dict,
+    ) -> dict:
+
+        if name == "list_files":
+            path = arguments.get("path", ".")
+
+            target = self.policy.validate_file_path(path)
+
+            if target is None:
+                return {
+                    "ok": False,
+                    "error": "المسار غير مسموح."
+                }
+
+            if not target.exists():
+                return {
+                    "ok": False,
+                    "error": "المسار غير موجود."
+                }
+
+            if not target.is_dir():
+                return {
+                    "ok": False,
+                    "error": "المسار ليس مجلدًا."
+                }
+
+            items = []
+
+            for item in sorted(
+                target.iterdir(),
+                key=lambda p: p.name.lower()
+            ):
+                if self.policy.is_sensitive_path(item):
+                    continue
+
+                items.append(
+                    {
+                        "name": item.name,
+                        "type": (
+                            "directory"
+                            if item.is_dir()
+                            else "file"
+                        )
+                    }
+                )
+
+            return {
+                "ok": True,
+                "evidence": {
+                    "path": str(
+                        target.relative_to(
+                            self.policy.workspace
+                        )
+                    ),
+                    "items": items[:200]
+                }
+            }
+
+        elif name == "read_file":
+            return self.executor.read_file(
+                arguments.get("path", ""),
+                arguments.get("start_line", 1),
+                arguments.get("end_line")
+            )
+
+        elif name == "write_file":
+            return self.executor.write_file(
+                arguments.get("path", ""),
+                arguments.get("content", "")
+            )
+
+        elif name == "create_directory":
+            return self.executor.create_directory(
+                arguments.get("path", "")
+            )
+
+        elif name == "delete_file":
+            return self.executor.delete_file(
+                arguments.get("path", "")
+            )
+
+        elif name == "search_files":
+            return self.executor.search_files(
+                arguments.get("pattern", ""),
+                arguments.get("path", ".")
+            )
+
+        elif name == "run_command":
+            return self.executor.run_command(
+                arguments.get("command", "")
+            )
+
+        elif name == "run_python":
+            return self.executor.run_python(
+                arguments.get("script_path", "")
+            )
+
+        elif name == "system_info":
+            return self.executor.system_info()
+
+        elif name == "git_status":
+            return self.executor.git_read_only(
+                "status"
+            )
+
+        elif name == "remember_fact":
+
+            fact = str(
+                arguments.get(
+                    "fact",
+                    ""
+                )
+            ).strip()
+
+            if not fact:
+                return {
+                    "ok": False,
+                    "error": "الذاكرة فارغة."
+                }
+
+            is_preference = bool(
+                arguments.get(
+                    "is_preference",
+                    False
+                )
+            )
+
+            if is_preference:
+                saved = self.memory.add_preference(
+                    fact
+                )
+            else:
+                saved = self.memory.add_fact(
+                    fact
+                )
+
+            return {
+                "ok": bool(saved),
+                "evidence": {
+                    "saved": bool(saved),
+                    "type": (
+                        "preference"
+                        if is_preference
+                        else "fact"
+                    )
+                }
+            }
+
+        elif name == "verify_file":
+            return self.executor.verify_file(
+                arguments.get("path", "")
+            )
+
+        return {
+            "ok": False,
+            "error": f"أداة غير معالجة: {name}"
+        }
 
     # ============================================================
     # Tool Call extraction
@@ -963,6 +1010,10 @@ class ALIXAgent:
 
         if not user_input:
             return "❌ لم يتم إدخال طلب."
+
+        self.current_request_id = (
+            self.observability.new_id()
+        )
 
         self.messages[0] = {
             "role": "system",
