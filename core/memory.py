@@ -64,10 +64,15 @@ class Memory:
 
         else:
             # تحقق مبكر من سلامة الملف.
-            data = self._load()
+            # يجب التمييز بين primary صالح وprimary تالف،
+            # لأن _load() يفشل بأمان بإرجاع memory فارغة.
+            data = self._load_raw()
 
-            if not self._valid_structure(data):
-                self._restore_backup()
+            if data is None:
+                if not self._restore_backup():
+                    self._save(
+                        self._empty_memory()
+                    )
 
     # ============================================================
     # Base structure
@@ -125,6 +130,31 @@ class Memory:
     # Load
     # ============================================================
 
+    def _load_raw(self) -> Optional[dict]:
+        """Load primary memory while preserving corruption status."""
+
+        with self.lock:
+            try:
+                data = json.loads(
+                    self.path.read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+                if not self._valid_structure(data):
+                    return None
+
+                data.setdefault("version", 1)
+                return data
+
+            except (
+                json.JSONDecodeError,
+                OSError,
+                ValueError,
+                TypeError,
+            ):
+                return None
+
     def _load(self) -> dict:
 
         with self.lock:
@@ -165,7 +195,8 @@ class Memory:
 
     def _save(
         self,
-        data: dict
+        data: dict,
+        backup_current: bool = True
     ) -> bool:
 
         with self.lock:
@@ -209,7 +240,9 @@ class Memory:
                     )
 
                 # Backup للنسخة الحالية.
-                if self.path.exists():
+                # أثناء Recovery لا ننسخ primary التالف
+                # فوق الـ backup السليم.
+                if backup_current and self.path.exists():
 
                     try:
                         shutil.copy2(
@@ -323,7 +356,8 @@ class Memory:
                     return False
 
                 return self._save(
-                    backup_data
+                    backup_data,
+                    backup_current=False
                 )
 
             except Exception:
