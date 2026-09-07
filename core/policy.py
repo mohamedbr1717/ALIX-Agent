@@ -51,6 +51,66 @@ class Policy:
             "destructive": 3,
         }
 
+        # =========================================================
+        # Capability Gates
+        # =========================================================
+        # High-risk capabilities are disabled by default.
+        # A disabled capability must be rejected before execution.
+        self.tool_argument_schema = {
+            "list_files": {
+                "allowed": {"path"},
+                "required": {"path"},
+            },
+            "read_file": {
+                "allowed": {"path", "start_line", "end_line"},
+                "required": {"path"},
+            },
+            "write_file": {
+                "allowed": {"path", "content"},
+                "required": {"path", "content"},
+            },
+            "create_directory": {
+                "allowed": {"path"},
+                "required": {"path"},
+            },
+            "delete_file": {
+                "allowed": {"path"},
+                "required": {"path"},
+            },
+            "search_files": {
+                "allowed": {"pattern", "path", "max_matches"},
+                "required": {"pattern"},
+            },
+            "run_python": {
+                "allowed": {"script_path"},
+                "required": {"script_path"},
+            },
+            "run_command": {
+                "allowed": {"command"},
+                "required": {"command"},
+            },
+            "system_info": {
+                "allowed": set(),
+                "required": set(),
+            },
+            "git_status": {
+                "allowed": set(),
+                "required": set(),
+            },
+            "remember_fact": {
+                "allowed": {"fact", "is_preference"},
+                "required": {"fact"},
+            },
+            "verify_file": {
+                "allowed": {"path"},
+                "required": {"path"},
+            },
+        }
+
+        self.capabilities = {
+            "run_python": False,
+        }
+
         self.tool_permissions = {
             "list_files": "read",
             "read_file": "read",
@@ -282,6 +342,8 @@ class Policy:
             r"&&",
             r"\|\|",
             r"\|",
+            r"&",
+            r"\r|\n",
 
             # Command substitution
             r"`",
@@ -618,6 +680,17 @@ class Policy:
 
         return True
 
+    def capability_allowed(self, tool_name: str) -> bool:
+        """
+        Return True only when an explicitly gated capability is enabled.
+        Tools without a capability gate remain governed by tool_permissions.
+        """
+        if not isinstance(tool_name, str):
+            return False
+
+        return self.capabilities.get(tool_name, True) is True
+
+
     def tool_allowed(self, tool_name: str) -> bool:
         """
         Return True only for explicitly registered policy tools.
@@ -664,14 +737,17 @@ class Policy:
         arguments: dict,
     ) -> bool:
         """
-        Validate tool arguments before confirmation/execution.
+        Strict tool argument boundary.
 
-        This layer is intentionally strict:
-        - Unknown tools are rejected.
-        - File-oriented tools must remain inside workspace.
-        - Sensitive files are rejected.
-        - Command tools delegate to command_allowed().
-        - Python execution is restricted to safe workspace scripts.
+        Security properties:
+        - Reject non-dict arguments.
+        - Reject unknown argument names.
+        - Enforce required arguments.
+        - Enforce exact Python types.
+        - Reject bool where int is expected.
+        - Validate path boundaries.
+        - Validate command restrictions.
+        - Validate Python script restrictions.
         """
 
         if not isinstance(tool_name, str):
@@ -683,12 +759,27 @@ class Policy:
         if not isinstance(arguments, dict):
             return False
 
-        if len(arguments) > 16:
+        schema = self.tool_argument_schema.get(tool_name)
+
+        if schema is None:
             return False
 
-        # ---------------------------------------------------------
-        # Validate generic argument sizes
-        # ---------------------------------------------------------
+        allowed = schema["allowed"]
+        required = schema["required"]
+
+        argument_names = set(arguments.keys())
+
+        # Reject unknown arguments.
+        if not argument_names.issubset(allowed):
+            return False
+
+        # Reject missing required arguments.
+        if not required.issubset(argument_names):
+            return False
+
+        # Generic argument limits.
+        if len(arguments) > 16:
+            return False
 
         for key, value in arguments.items():
 
@@ -699,12 +790,66 @@ class Policy:
                 return False
 
             if isinstance(value, str):
-
                 if len(value) > self.max_argument_length:
                     return False
 
                 if "\x00" in value:
                     return False
+
+        # Exact argument types.
+        expected_types = {
+            "list_files": {
+                "path": str,
+            },
+            "read_file": {
+                "path": str,
+                "start_line": int,
+                "end_line": int,
+            },
+            "write_file": {
+                "path": str,
+                "content": str,
+            },
+            "create_directory": {
+                "path": str,
+            },
+            "delete_file": {
+                "path": str,
+            },
+            "search_files": {
+                "pattern": str,
+                "path": str,
+                "max_matches": int,
+            },
+            "run_python": {
+                "script_path": str,
+            },
+            "run_command": {
+                "command": str,
+            },
+            "remember_fact": {
+                "fact": str,
+                "is_preference": bool,
+            },
+            "verify_file": {
+                "path": str,
+            },
+        }
+
+        for key, expected_type in expected_types.get(
+            tool_name,
+            {}
+        ).items():
+
+            if key not in arguments:
+                continue
+
+            value = arguments[key]
+
+            # Exact type check.
+            # This intentionally rejects bool as an int.
+            if type(value) is not expected_type:
+                return False
 
         # ---------------------------------------------------------
         # File path validation
@@ -722,26 +867,8 @@ class Policy:
 
         if tool_name in path_tools:
 
-            path = arguments.get("path")
-
-            if tool_name == "create_directory":
-                path = arguments.get("path")
-
-            if tool_name == "delete_file":
-                path = arguments.get("path")
-
-            if tool_name == "search_files":
-                path = arguments.get("path", ".")
-
-            if tool_name in {
-                "read_file",
-                "write_file",
-                "verify_file",
-            }:
-                path = arguments.get("path")
-
-            if not isinstance(path, str):
-                return False
+            # list_files and search_files have optional paths.
+            path = arguments.get("path", ".")
 
             target = self.resolve_path(path)
 
@@ -755,8 +882,32 @@ class Policy:
                 return False
 
         # ---------------------------------------------------------
-        # write_file argument validation
+        # read_file line validation
         # ---------------------------------------------------------
+
+        if tool_name == "read_file":
+
+            start_line = arguments.get("start_line", 1)
+            end_line = arguments.get("end_line")
+
+            if type(start_line) is not int:
+                return False
+
+            if start_line < 1:
+                return False
+
+            if end_line is not None:
+
+                if type(end_line) is not int:
+                    return False
+
+                if end_line < start_line:
+                    return False
+
+        # ---------------------------------------------------------
+        # write_file validation
+        # ---------------------------------------------------------
+
         if tool_name == "write_file":
 
             path = arguments.get("path")
@@ -775,7 +926,41 @@ class Policy:
                 return False
 
         # ---------------------------------------------------------
-        # Search pattern limits
+        # create_directory
+        # ---------------------------------------------------------
+
+        if tool_name == "create_directory":
+
+            path = arguments.get("path")
+
+            if not isinstance(path, str):
+                return False
+
+            if not path:
+                return False
+
+            if len(path) > self.max_path_length:
+                return False
+
+        # ---------------------------------------------------------
+        # delete_file
+        # ---------------------------------------------------------
+
+        if tool_name == "delete_file":
+
+            path = arguments.get("path")
+
+            if not isinstance(path, str):
+                return False
+
+            if not path:
+                return False
+
+            if len(path) > self.max_path_length:
+                return False
+
+        # ---------------------------------------------------------
+        # search_files
         # ---------------------------------------------------------
 
         if tool_name == "search_files":
@@ -799,23 +984,23 @@ class Policy:
                 self.max_search_matches,
             )
 
+            if type(max_matches) is not int:
+                return False
+
             if (
-                not isinstance(max_matches, int)
-                or isinstance(max_matches, bool)
-                or max_matches < 1
+                max_matches < 1
                 or max_matches > self.max_search_matches
             ):
                 return False
 
         # ---------------------------------------------------------
-        # Memory / remember_fact
+        # remember_fact
         # ---------------------------------------------------------
 
         if tool_name == "remember_fact":
+
             fact = arguments.get("fact")
 
-            # The tool schema requires a non-empty string.
-            # Reject other Python types before confirmation/execution.
             if not isinstance(fact, str):
                 return False
 
@@ -825,8 +1010,16 @@ class Policy:
             if len(fact) > self.max_argument_length:
                 return False
 
+            is_preference = arguments.get(
+                "is_preference",
+                False,
+            )
+
+            if type(is_preference) is not bool:
+                return False
+
         # ---------------------------------------------------------
-        # Command execution
+        # run_command
         # ---------------------------------------------------------
 
         if tool_name == "run_command":
@@ -836,11 +1029,14 @@ class Policy:
             if not isinstance(command, str):
                 return False
 
+            if not command:
+                return False
+
             if not self.command_allowed(command):
                 return False
 
         # ---------------------------------------------------------
-        # Python execution
+        # run_python
         # ---------------------------------------------------------
 
         if tool_name == "run_python":
@@ -856,14 +1052,13 @@ class Policy:
             if len(script_path) > self.max_path_length:
                 return False
 
-            # Never allow absolute paths.
-            target_input = Path(script_path)
-
-            if target_input.is_absolute():
+            if "\x00" in script_path:
                 return False
 
-            # Never allow traversal.
-            if ".." in target_input.parts:
+            if Path(script_path).is_absolute():
+                return False
+
+            if ".." in Path(script_path).parts:
                 return False
 
             target = self.resolve_path(script_path)
@@ -877,12 +1072,10 @@ class Policy:
             if self.is_sensitive_path(target):
                 return False
 
-            # Only Python source files are executable.
             if target.suffix.lower() != ".py":
                 return False
 
         return True
-
 
     def command_allowed(
         self,
@@ -993,9 +1186,6 @@ class Policy:
 
         return True
 
-    # =============================================================
-    # Argument validation
-    # =============================================================
 
     def validate_command_arguments(
         self,

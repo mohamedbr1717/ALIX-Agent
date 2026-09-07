@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
+from dotenv import dotenv_values
 import time
 import urllib.error
 import urllib.request
@@ -225,15 +227,26 @@ class HybridLLM:
 
         self.local = LocalLLM()
 
-        self.api_key = os.getenv(
-            "OPENROUTER_API_KEY"
+        # Load credentials without modifying os.environ.
+        env_file = (
+            Path.home()
+            / "ALIX-Agent"
+            / ".env"
+        )
+        file_env = dotenv_values(env_file)
+
+        self.api_key = (
+            file_env.get("OPENROUTER_API_KEY")
+            or os.getenv("OPENROUTER_API_KEY")
         )
 
-        self.model = os.getenv(
-            "OPENROUTER_MODEL",
-            self.DEFAULT_REMOTE_MODEL
+        self.model = (
+            file_env.get("OPENROUTER_MODEL")
+            or os.getenv(
+                "OPENROUTER_MODEL",
+                self.DEFAULT_REMOTE_MODEL
+            )
         )
-
         self.client: Optional[
             OpenAI
         ] = None
@@ -267,19 +280,18 @@ class HybridLLM:
     # Safe error text
     # ============================================================
 
-    @staticmethod
     def _safe_error(
+        self,
         error: Exception
     ) -> str:
 
         text = str(error)
 
         # منع ظهور المفتاح في الرسائل.
+        # يعتمد على المفتاح المخزن داخل HybridLLM
+        # وليس على os.environ.
         sensitive = [
-            os.getenv(
-                "OPENROUTER_API_KEY",
-                ""
-            )
+            self.api_key or ""
         ]
 
         for secret in sensitive:
