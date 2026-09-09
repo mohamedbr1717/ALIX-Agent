@@ -97,6 +97,176 @@ class SafeExecutor:
 
         return text[:limit - len(marker)] + marker
 
+    def _run_bounded_process(
+        self,
+        argv,
+        *,
+        cwd,
+        env,
+        timeout,
+        max_stdout=None,
+        max_stderr=None,
+    ):
+        """Run a child process with continuously drained bounded output."""
+
+        import os
+        import signal
+        import threading
+        from collections import deque
+
+        stdout_limit = (
+            self.max_output
+            if max_stdout is None
+            else max(1, int(max_stdout))
+        )
+
+        stderr_limit = (
+            2000
+            if max_stderr is None
+            else max(1, int(max_stderr))
+        )
+
+        stdout_chunks = deque()
+        stderr_chunks = deque()
+
+        stdout_bytes = 0
+        stderr_bytes = 0
+
+        lock = threading.Lock()
+
+        def drain(stream, chunks, limit, stream_name):
+            nonlocal stdout_bytes, stderr_bytes
+
+            try:
+                while True:
+                    data = stream.read(65536)
+
+                    if not data:
+                        break
+
+                    if isinstance(data, str):
+                        data = data.encode(
+                            "utf-8",
+                            "replace",
+                        )
+
+                    with lock:
+                        if stream_name == "stdout":
+                            stdout_bytes += len(data)
+                        else:
+                            stderr_bytes += len(data)
+
+                        kept = sum(len(x) for x in chunks)
+                        remaining = limit - kept
+
+                        if remaining > 0:
+                            chunks.append(
+                                data[:remaining]
+                            )
+
+            finally:
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+
+        proc = subprocess.Popen(
+            list(argv),
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            start_new_session=(
+                os.name == "posix"
+            ),
+        )
+
+        stdout_thread = threading.Thread(
+            target=drain,
+            args=(
+                proc.stdout,
+                stdout_chunks,
+                stdout_limit,
+                "stdout",
+            ),
+            daemon=True,
+        )
+
+        stderr_thread = threading.Thread(
+            target=drain,
+            args=(
+                proc.stderr,
+                stderr_chunks,
+                stderr_limit,
+                "stderr",
+            ),
+            daemon=True,
+        )
+
+        stdout_thread.start()
+        stderr_thread.start()
+
+        timed_out = False
+
+        try:
+            proc.wait(
+                timeout=max(
+                    1,
+                    int(timeout),
+                )
+            )
+
+        except subprocess.TimeoutExpired:
+            timed_out = True
+
+            try:
+                if os.name == "posix":
+                    os.killpg(
+                        proc.pid,
+                        signal.SIGKILL,
+                    )
+                else:
+                    proc.kill()
+
+            except ProcessLookupError:
+                pass
+
+            proc.wait()
+
+        stdout_thread.join(timeout=2)
+        stderr_thread.join(timeout=2)
+
+        stdout = b"".join(
+            stdout_chunks
+        ).decode(
+            "utf-8",
+            "replace",
+        )
+
+        stderr = b"".join(
+            stderr_chunks
+        ).decode(
+            "utf-8",
+            "replace",
+        )
+
+        return {
+            "returncode": proc.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "stdout_bytes": stdout_bytes,
+            "stderr_bytes": stderr_bytes,
+            "stdout_truncated": (
+                stdout_bytes > stdout_limit
+            ),
+            "stderr_truncated": (
+                stderr_bytes > stderr_limit
+            ),
+            "timed_out": timed_out,
+        }
+
     def _safe_environment(self) -> dict:
         """
         بيئة تنفيذ محدودة.
@@ -657,16 +827,44 @@ class SafeExecutor:
         # 5. تنفيذ بدون shell
         # ---------------------------------------------------------
         try:
-            result = subprocess.run(
+            bounded = self._run_bounded_process(
                 parts,
                 cwd=self.policy.workspace,
                 env=self._safe_environment(),
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
                 timeout=self.command_timeout,
-                shell=False,
+                max_stdout=self.max_output,
+                max_stderr=2000,
             )
+
+            ok = (
+                bounded["returncode"] == 0
+                and not bounded["timed_out"]
+            )
+
+            return self._base_result(
+                "run_command",
+                started,
+                ok,
+                "تم تنفيذ الأمر."
+                if ok
+                else (
+                    "انتهت مهلة الأمر."
+                    if bounded["timed_out"]
+                    else "فشل تنفيذ الأمر."
+                ),
+                stdout=bounded["stdout"],
+                stderr=bounded["stderr"],
+                returncode=bounded["returncode"],
+                evidence={
+                    "command": parts,
+                    "returncode": bounded["returncode"],
+                    "timed_out": bounded["timed_out"],
+                    "bounded_output": True,
+                    "stdout_bytes": bounded["stdout_bytes"],
+                    "stderr_bytes": bounded["stderr_bytes"],
+                    "verified": True,
+                },
+            ).to_dict()
 
             stdout = self._truncate(
                 result.stdout,
@@ -789,7 +987,6 @@ class SafeExecutor:
     # ============================================================
     # Python
     # ============================================================
-
     def run_python(self, script_path: str) -> dict:
 
         started = time.monotonic()
@@ -820,22 +1017,25 @@ class SafeExecutor:
                 "يسمح بتشغيل ملفات .py فقط.",
             ).to_dict()
 
+        command = [
+            sys.executable,
+            str(target),
+        ]
+
         try:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(target),
-                ],
+            bounded = self._run_bounded_process(
+                command,
                 cwd=self.policy.workspace,
                 env=self._safe_environment(),
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
                 timeout=self.python_timeout,
-                shell=False,
+                max_stdout=self.max_output,
+                max_stderr=2000,
             )
 
-            ok = result.returncode == 0
+            ok = (
+                bounded["returncode"] == 0
+                and not bounded["timed_out"]
+            )
 
             return self._base_result(
                 "run_python",
@@ -843,49 +1043,26 @@ class SafeExecutor:
                 ok,
                 "تم تشغيل Python بنجاح."
                 if ok
-                else "انتهى Python بخطأ.",
-                stdout=self._truncate(
-                    result.stdout,
-                    self.max_output,
+                else (
+                    f"انتهت مهلة Python ({self.python_timeout} ثانية)."
+                    if bounded["timed_out"]
+                    else "انتهى Python بخطأ."
                 ),
-                stderr=self._truncate(
-                    result.stderr,
-                    2000,
-                ),
-                returncode=result.returncode,
+                stdout=bounded["stdout"],
+                stderr=bounded["stderr"],
+                returncode=bounded["returncode"],
                 evidence={
                     "script": str(
                         target.relative_to(
                             self.policy.workspace
                         )
                     ),
-                    "returncode": result.returncode,
+                    "returncode": bounded["returncode"],
+                    "timed_out": bounded["timed_out"],
+                    "bounded_output": True,
+                    "stdout_bytes": bounded["stdout_bytes"],
+                    "stderr_bytes": bounded["stderr_bytes"],
                     "verified": True,
-                },
-            ).to_dict()
-
-        except subprocess.TimeoutExpired as exc:
-            return self._base_result(
-                "run_python",
-                started,
-                False,
-                f"انتهت مهلة Python ({self.python_timeout} ثانية).",
-                stdout=self._truncate(
-                    exc.stdout or exc.output or "",
-                    self.max_output,
-                ),
-                stderr=self._truncate(
-                    exc.stderr or "",
-                    2000,
-                ),
-                evidence={
-                    "script": str(
-                        target.relative_to(
-                            self.policy.workspace
-                        )
-                    ),
-                    "timed_out": True,
-                    "verified": False,
                 },
             ).to_dict()
 
@@ -895,7 +1072,16 @@ class SafeExecutor:
                 started,
                 False,
                 f"فشل تشغيل Python: {exc}",
+                evidence={
+                    "script": str(
+                        target.relative_to(
+                            self.policy.workspace
+                        )
+                    ),
+                    "verified": False,
+                },
             ).to_dict()
+
 
     # ============================================================
     # System information
@@ -991,18 +1177,19 @@ class SafeExecutor:
             ).to_dict()
 
         try:
-            result = subprocess.run(
+            bounded = self._run_bounded_process(
                 command,
                 cwd=self.policy.workspace,
                 env=self._safe_environment(),
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
                 timeout=self.command_timeout,
-                shell=False,
+                max_stdout=self.max_output,
+                max_stderr=2000,
             )
 
-            ok = result.returncode == 0
+            ok = (
+                bounded["returncode"] == 0
+                and not bounded["timed_out"]
+            )
 
             return self._base_result(
                 "git_status",
@@ -1010,29 +1197,37 @@ class SafeExecutor:
                 ok,
                 "تم تنفيذ Git."
                 if ok
-                else "فشلت عملية Git.",
-                stdout=self._truncate(
-                    result.stdout,
-                    self.max_output,
+                else (
+                    "انتهت مهلة Git."
+                    if bounded["timed_out"]
+                    else "فشلت عملية Git."
                 ),
-                stderr=self._truncate(
-                    result.stderr,
-                    2000,
-                ),
-                returncode=result.returncode,
+                stdout=bounded["stdout"],
+                stderr=bounded["stderr"],
+                returncode=bounded["returncode"],
                 evidence={
                     "git_action": action,
                     "read_only": True,
-                    "returncode": result.returncode,
+                    "returncode": bounded["returncode"],
+                    "timed_out": bounded["timed_out"],
+                    "bounded_output": True,
+                    "stdout_bytes": bounded["stdout_bytes"],
+                    "stderr_bytes": bounded["stderr_bytes"],
+                    "verified": True,
                 },
             ).to_dict()
 
-        except subprocess.TimeoutExpired:
+        except Exception as exc:
             return self._base_result(
                 "git_status",
                 started,
                 False,
-                "انتهت مهلة Git.",
+                f"فشل Git: {exc}",
+                evidence={
+                    "git_action": action,
+                    "read_only": True,
+                    "verified": False,
+                },
             ).to_dict()
 
         except Exception as exc:
