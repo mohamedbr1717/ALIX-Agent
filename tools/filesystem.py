@@ -180,8 +180,30 @@ class FileSystemTools:
 
         try:
 
-            content = base.read_text(
-                encoding="utf-8",
+            data = bytearray()
+            bytes_read = 0
+
+            with base.open("rb") as stream:
+                while True:
+                    chunk = stream.read(64 * 1024)
+                    if not chunk:
+                        break
+
+                    bytes_read += len(chunk)
+
+                    if bytes_read > self.MAX_READ_SIZE:
+                        return {
+                            "ok": False,
+                            "error": (
+                                f"الملف أكبر من الحد المسموح "
+                                f"({self.MAX_READ_SIZE} bytes)."
+                            )
+                        }
+
+                    data.extend(chunk)
+
+            content = bytes(data).decode(
+                "utf-8",
                 errors="replace"
             )
 
