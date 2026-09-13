@@ -1,0 +1,27 @@
+{
+  "version": "4.1.0",
+  "policy_name": "Strict_Hardened_AST_Policy",
+  "banned_nodes": [
+    "Import",
+    "ImportFrom"
+  ],
+  "banned_names": [
+    "eval",
+    "exec",
+    "compile",
+    "open",
+    "__import__",
+    "getattr",
+    "setattr",
+    "delattr"
+  ],
+  "banned_attributes": [
+    "__subclasses__",
+    "__bases__",
+    "__mro__",
+    "__class__",
+    "__globals__",
+    "__code__"
+  ],
+  "max_code_length": 50000
+}

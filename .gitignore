@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+.pytest_cache/
+venv/
+.venv/
+env/
+*.log
+*.db
+models/
+*.gguf
+.env
+logs/
+
+# Runtime workspace and Python caches
+workspace/*
+__pycache__/
+*.pyc
