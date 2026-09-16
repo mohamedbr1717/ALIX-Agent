@@ -333,6 +333,37 @@ class ALIXAgent:
     # Confirmation
     # ============================================================
 
+    # SECURITY FIX: confirm_tool() used to print raw argument values
+    # straight to the terminal. A value containing ANSI escape codes
+    # or Unicode bidi override characters could make the confirmation
+    # prompt display something different from what will actually run
+    # -- a known class of terminal-spoofing attack against CLI
+    # approval prompts. Strip both before showing anything to the
+    # person who is about to approve or deny the action.
+    _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+    _BIDI_CONTROL_CHARS = (
+        "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",  # LRE/RLE/PDF/LRO/RLO
+        "\u2066", "\u2067", "\u2068", "\u2069",              # LRI/RLI/FSI/PDI
+    )
+
+    @classmethod
+    def _safe_display(cls, value) -> str:
+        text = value if isinstance(value, str) else json.dumps(
+            value, ensure_ascii=False
+        )
+        text = cls._ANSI_ESCAPE_RE.sub("", text)
+        for char in cls._BIDI_CONTROL_CHARS:
+            text = text.replace(char, "")
+        # Drop other C0 control chars except newline/tab, which are
+        # harmless for display purposes here.
+        text = "".join(
+            ch for ch in text
+            if ch in ("\n", "\t") or ch >= " "
+        )
+        if len(text) > 2000:
+            text = text[:2000] + "...[TRUNCATED]"
+        return text
+
     def confirm_tool(
         self,
         name: str,
@@ -349,14 +380,11 @@ class ALIXAgent:
 
         print()
         print("⚠️ ALIX يطلب موافقة للتنفيذ")
-        print(f"الأداة: {name}")
-        print(f"المستوى: {level}")
+        print(f"الأداة: {self._safe_display(name)}")
+        print(f"المستوى: {self._safe_display(level)}")
         print(
             "المعاملات:",
-            json.dumps(
-                arguments,
-                ensure_ascii=False
-            )
+            self._safe_display(arguments)
         )
 
         if level == "destructive":

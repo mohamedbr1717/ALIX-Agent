@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -108,6 +109,53 @@ class Memory:
     # Sanitization
     # ============================================================
 
+    # SECURITY FIX: add_history() persists raw user/assistant turns
+    # to disk on every single round with NO confirmation gate (unlike
+    # remember_fact, which requires user approval). If a person pastes
+    # a password or API key into a request, it was written to
+    # memory.json in plaintext and kept there for up to MAX_HISTORY
+    # turns. This is a best-effort pattern screen, not a guarantee --
+    # secrets that don't match a known shape will still pass through.
+    # It reduces the common, high-confidence cases (cloud keys, private
+    # key blocks, bearer tokens, "password=..." style assignments).
+    _SECRET_PATTERNS = [
+        # AWS access key IDs
+        (re.compile(r"AKIA[0-9A-Z]{16}"), "[REDACTED_AWS_KEY]"),
+        # OpenAI / Anthropic / generic vendor "sk-..." style keys
+        (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED_API_KEY]"),
+        # GitHub tokens
+        (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "[REDACTED_GITHUB_TOKEN]"),
+        # PEM-style private key blocks
+        (
+            re.compile(
+                r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+                re.DOTALL,
+            ),
+            "[REDACTED_PRIVATE_KEY]",
+        ),
+        # Bearer / JWT-style tokens
+        (re.compile(r"\bBearer\s+[A-Za-z0-9._-]{16,}\b"), "Bearer [REDACTED_TOKEN]"),
+        (
+            re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
+            "[REDACTED_JWT]",
+        ),
+        # key/secret/password/token = value assignments (common in
+        # .env-style pasted config)
+        (
+            re.compile(
+                r"(?i)\b(api[_-]?key|secret|password|passwd|token)\b\s*[:=]\s*"
+                r"['\"]?[A-Za-z0-9/+._-]{8,}['\"]?"
+            ),
+            r"\1=[REDACTED]",
+        ),
+    ]
+
+    @classmethod
+    def _redact_secrets(cls, text: str) -> str:
+        for pattern, replacement in cls._SECRET_PATTERNS:
+            text = pattern.sub(replacement, text)
+        return text
+
     def _sanitize_text(
         self,
         value: Any
@@ -123,6 +171,8 @@ class Memory:
 
         # منع null byte.
         text = text.replace("\x00", "")
+
+        text = self._redact_secrets(text)
 
         return text[:self.MAX_TEXT_LENGTH]
 
@@ -193,6 +243,18 @@ class Memory:
     # Atomic save
     # ============================================================
 
+    def _restrict_permissions(self, path: Path) -> None:
+        # SECURITY FIX: memory.json/.bak previously used default OS
+        # permissions. Since memory.json can contain conversation
+        # history and remembered facts, restrict it to the owning
+        # user only. Best-effort: some filesystems (e.g. certain
+        # Android storage backends) don't support chmod, so failures
+        # here must never block a save.
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+
     def _save(
         self,
         data: dict,
@@ -249,6 +311,7 @@ class Memory:
                             self.path,
                             self.backup_path
                         )
+                        self._restrict_permissions(self.backup_path)
                     except OSError:
                         pass
 
@@ -257,6 +320,8 @@ class Memory:
                     temp_path,
                     self.path
                 )
+
+                self._restrict_permissions(self.path)
 
                 temp_path = None
 

@@ -21,13 +21,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install coverage python-dotenv openai
+          # proot لتشغيل اختبارات العزل الحقيقي في test_sandbox.py
+          # (نفس الأداة المستخدمة على Termux/أندرويد -- تعمل بدون
+          # الحاجة لصلاحيات إضافية على أي توزيعة لينكس).
+          sudo apt-get update && sudo apt-get install -y proot
 
       - name: Run Core Unit Tests
         run: |
           python -m unittest test_generated_executor.py
           python -m unittest test_generated_policy.py
 
+      - name: Run AST Benchmark
+        run: |
+          python benchmark_engine.py
+
       - name: Run Coverage Report
         run: |
-          coverage run --omit="test_*.py" -m unittest discover -p "test_*.py"
+          coverage run --omit="wasm_sandbox.py,policy_watcher.py,test_*.py" -m unittest discover -p "test_*.py"
           coverage report -m --fail-under=80

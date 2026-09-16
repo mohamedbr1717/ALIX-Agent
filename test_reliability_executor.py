@@ -1,19 +1,67 @@
-import unittest
 import subprocess
+import sys
+import unittest
 from unittest import mock
 
 from core.executor import SafeExecutor
 from core.policy import Policy
 
 
+class _UnsandboxedTestDouble:
+    """
+    بديل اختباري لـ ProotSandbox: ينفّذ السكربت مباشرة عبر subprocess
+    بدون proot، حتى تستمر اختبارات منطق SafeExecutor نفسه (المهلة،
+    التقاط المخرجات الجزئية، رموز الخروج) على أي جهاز بغض النظر عن
+    توفر proot فعليًا. اختبار ProotSandbox الحقيقي موجود بشكل مستقل
+    في test_sandbox.py.
+    """
+
+    def __init__(self, workspace):
+        self.workspace = workspace
+
+    def run(self, script_path, script_args=None, timeout=30, env=None):
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                cwd=str(self.workspace),
+                env=env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            return {
+                "ok": result.returncode == 0,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "timed_out": False,
+            }
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "ok": False,
+                "error": f"انتهت مهلة Python ({timeout} ثانية).",
+                "stdout": (exc.stdout or "") if exc.stdout else "",
+                "stderr": (exc.stderr or "") if exc.stderr else "",
+                "timed_out": True,
+            }
+
+
 class TestExecutorReliability(unittest.TestCase):
 
     def setUp(self):
         self.policy = Policy()
+        # This test class exercises actual python execution via
+        # run_command() (timeouts, partial output, recovery), so it
+        # opts in to the run_python capability explicitly. The
+        # capability defaults to False precisely so that callers must
+        # make this choice deliberately.
+        self.policy.capabilities["run_python"] = True
         self.executor = SafeExecutor(
             policy=self.policy,
             command_timeout=1,
             python_timeout=1,
+            sandbox_cls=_UnsandboxedTestDouble,
         )
 
         self.timeout_script = self.policy.workspace / "test_timeout.py"

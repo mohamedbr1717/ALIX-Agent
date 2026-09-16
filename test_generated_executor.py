@@ -46,13 +46,53 @@ class MockPolicy:
         return False
 
 
+class _UnsandboxedTestDouble:
+    """
+    بديل اختباري لـ ProotSandbox (لا يتطلب proot مثبتًا على جهاز
+    الاختبار). ProotSandbox الحقيقي مغطى في test_sandbox.py.
+    """
+
+    def __init__(self, workspace):
+        self.workspace = workspace
+
+    def run(self, script_path, script_args=None, timeout=30, env=None):
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                cwd=str(self.workspace),
+                env=env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            return {
+                "ok": result.returncode == 0,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "timed_out": False,
+            }
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "ok": False,
+                "error": f"انتهت مهلة Python ({timeout} ثانية).",
+                "stdout": (exc.stdout or "") if exc.stdout else "",
+                "stderr": (exc.stderr or "") if exc.stderr else "",
+                "timed_out": True,
+            }
+
+
 class TestExecutor(unittest.TestCase):
     def setUp(self):
         # Create a temporary workspace directory
         self.tmp_dir = tempfile.mkdtemp()
         self.workspace = Path(self.tmp_dir)
         self.policy = MockPolicy(self.workspace)
-        self.exec = executor.SafeExecutor(policy=self.policy)
+        self.exec = executor.SafeExecutor(
+            policy=self.policy,
+            sandbox_cls=_UnsandboxedTestDouble,
+        )
 
     def tearDown(self):
         shutil.rmtree(self.tmp_dir, ignore_errors=True)

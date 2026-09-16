@@ -1131,8 +1131,25 @@ class Policy:
         # ---------------------------------------------------------
         # Python restrictions
         # ---------------------------------------------------------
+        #
+        # SECURITY FIX: previously "python <script>.py" could be run
+        # via run_command() even when the "run_python" capability was
+        # disabled (capabilities["run_python"] = False by default).
+        # This let the entire path/command allowlist be bypassed by
+        # writing an arbitrary .py file (write_file has no content
+        # filtering) and then executing it -- the spawned interpreter
+        # is a full, unsandboxed Python process (no seccomp, no
+        # chroot, no restricted user), so any command-level protection
+        # is meaningless once arbitrary Python code is running.
+        #
+        # Executing Python is now gated behind the same explicit
+        # capability flag used by the dedicated run_python() tool, so
+        # both entry points share one on/off switch and one policy.
 
         if executable in {"python", "python3"}:
+
+            if not self.capability_allowed("run_python"):
+                return False
 
             if "-c" in parts:
                 return False

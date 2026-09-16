@@ -64,13 +64,19 @@ class TestPolicy(unittest.TestCase):
         self.assertFalse(self.policy.command_allowed(cmd))
 
     def test_command_allowed_python_restrictions(self):
-        # Allowed python script inside workspace
+        # run_python capability is disabled by default, so even a
+        # well-formed script path must be rejected until an operator
+        # explicitly opts in.
         script = self.policy.workspace / "script.py"
         script.write_text("print('ok')")
         cmd = f"python {script.relative_to(self.policy.workspace)}"
+        self.assertFalse(self.policy.command_allowed(cmd))
+
+        # Once explicitly enabled, a well-formed script path is allowed.
+        self.policy.capabilities["run_python"] = True
         self.assertTrue(self.policy.command_allowed(cmd))
 
-        # Disallowed inline execution
+        # Disallowed inline execution, even with the capability enabled
         self.assertFalse(self.policy.command_allowed("python -c 'print(1)'"))
 
     def test_command_allowed_git(self):

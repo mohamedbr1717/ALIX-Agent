@@ -269,7 +269,17 @@ class TestPolicyCoverageV8(unittest.TestCase):
             self.policy.command_allowed("cat normal.txt")
         )
 
+    def test_command_allowed_python_disabled_by_default(self):
+        # SECURITY: run_python capability is disabled by default, and
+        # that must also block "python <script>" via run_command --
+        # otherwise the capability gate is meaningless.
+        self.assertFalse(
+            self.policy.command_allowed("python coverage_test.py")
+        )
+
     def test_command_allowed_python(self):
+        self.policy.capabilities["run_python"] = True
+
         self.assertTrue(
             self.policy.command_allowed("python coverage_test.py")
         )

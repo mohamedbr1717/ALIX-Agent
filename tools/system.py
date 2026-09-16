@@ -122,14 +122,37 @@ class SystemTools:
         )
 
         # ----------------------------------------------------
+        # Parse into argv (no shell)
+        # ----------------------------------------------------
+        # SECURITY FIX: this previously ran the raw string through
+        # subprocess.run(..., shell=True). Even with the policy
+        # allowlist checked first, shell=True hands the string to
+        # /bin/sh, which means glob expansion, word-splitting, and
+        # $VAR substitution all still happen -- behaviors the
+        # allowlist/regex checks were never designed to reason about.
+        # Executing as an argv list removes the shell entirely, which
+        # is what core/executor.py already does.
+
+        parts = self.policy.parse_command(command)
+
+        if not parts:
+
+            return {
+                "ok": False,
+                "error": (
+                    "تعذر تحليل الأمر."
+                )
+            }
+
+        # ----------------------------------------------------
         # Execute
         # ----------------------------------------------------
 
         try:
 
             result = subprocess.run(
-                command,
-                shell=True,
+                parts,
+                shell=False,
                 cwd=str(
                     self.policy.workspace
                 ),

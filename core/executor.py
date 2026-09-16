@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 from core.policy import Policy
+from core.sandbox import ProotSandbox, SandboxUnavailable
 
 
 class ExecutionResult:
@@ -69,12 +69,21 @@ class SafeExecutor:
         command_timeout: int = 30,
         python_timeout: int = 30,
         max_output: int = 4000,
+        sandbox_cls: Optional[type] = None,
     ):
         self.policy = policy or Policy()
 
         self.command_timeout = max(1, int(command_timeout))
         self.python_timeout = max(1, int(python_timeout))
         self.max_output = max(500, int(max_output))
+
+        # SECURITY: real OS-level isolation for run_python (see
+        # core/sandbox.py). Injectable so tests can substitute a
+        # lightweight fake without requiring `proot` to be installed
+        # on the machine running the test suite -- the real
+        # ProotSandbox class itself is covered separately in
+        # test_sandbox.py.
+        self._sandbox_cls = sandbox_cls or ProotSandbox
 
     # ============================================================
     # Internal helpers
@@ -1017,70 +1026,55 @@ class SafeExecutor:
                 "يسمح بتشغيل ملفات .py فقط.",
             ).to_dict()
 
-        command = [
-            sys.executable,
-            str(target),
-        ]
+        # SECURITY FIX: this used to run
+        # subprocess.run([sys.executable, script]) directly -- a full,
+        # unsandboxed interpreter with no filesystem or network
+        # isolation. It now goes through core/sandbox.py's
+        # ProotSandbox, which provides real, kernel/ptrace-enforced
+        # filesystem isolation and resource limits. If a real sandbox
+        # can't be constructed (e.g. `proot` isn't installed), this
+        # fails closed instead of silently falling back to
+        # unsandboxed execution.
 
         try:
-            bounded = self._run_bounded_process(
-                command,
-                cwd=self.policy.workspace,
-                env=self._safe_environment(),
-                timeout=self.python_timeout,
-                max_stdout=self.max_output,
-                max_stderr=2000,
-            )
-
-            ok = (
-                bounded["returncode"] == 0
-                and not bounded["timed_out"]
-            )
-
-            return self._base_result(
-                "run_python",
-                started,
-                ok,
-                "تم تشغيل Python بنجاح."
-                if ok
-                else (
-                    f"انتهت مهلة Python ({self.python_timeout} ثانية)."
-                    if bounded["timed_out"]
-                    else "انتهى Python بخطأ."
-                ),
-                stdout=bounded["stdout"],
-                stderr=bounded["stderr"],
-                returncode=bounded["returncode"],
-                evidence={
-                    "script": str(
-                        target.relative_to(
-                            self.policy.workspace
-                        )
-                    ),
-                    "returncode": bounded["returncode"],
-                    "timed_out": bounded["timed_out"],
-                    "bounded_output": True,
-                    "stdout_bytes": bounded["stdout_bytes"],
-                    "stderr_bytes": bounded["stderr_bytes"],
-                    "verified": True,
-                },
-            ).to_dict()
-
-        except Exception as exc:
+            sandbox = self._sandbox_cls(workspace=self.policy.workspace)
+        except SandboxUnavailable as exc:
             return self._base_result(
                 "run_python",
                 started,
                 False,
-                f"فشل تشغيل Python: {exc}",
-                evidence={
-                    "script": str(
-                        target.relative_to(
-                            self.policy.workspace
-                        )
-                    ),
-                    "verified": False,
-                },
+                f"تم رفض التنفيذ: العزل الحقيقي غير متاح ({exc})",
             ).to_dict()
+
+        result = sandbox.run(
+            script_path=target,
+            timeout=self.python_timeout,
+            env=self._safe_environment(),
+        )
+
+        ok = bool(result.get("ok"))
+
+        return self._base_result(
+            "run_python",
+            started,
+            ok,
+            "تم تشغيل Python بنجاح داخل العزل."
+            if ok
+            else result.get("error", "فشل التنفيذ داخل العزل."),
+            stdout=self._truncate(result.get("stdout", ""), self.max_output),
+            stderr=self._truncate(result.get("stderr", ""), 2000),
+            returncode=result.get("return_code"),
+            evidence={
+                "script": str(
+                    target.relative_to(
+                        self.policy.workspace
+                    )
+                ),
+                "sandboxed": True,
+                "isolation": "proot",
+                "timed_out": result.get("timed_out", False),
+            },
+        ).to_dict()
 
 
     # ============================================================

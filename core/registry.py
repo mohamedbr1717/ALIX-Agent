@@ -177,6 +177,27 @@ class ToolRegistry:
             }
 
         # ---------------------------------------------------------
+        # 3b. Capability gate
+        # ---------------------------------------------------------
+        # SECURITY FIX: this check was missing entirely. Without it,
+        # a disabled capability (e.g. capabilities["run_python"] =
+        # False by default) had no effect when tools were dispatched
+        # through ToolRegistry instead of Agent._execute_tool_body --
+        # any code path that adopted this "cleaner" registry later
+        # would have silently reopened the run_python bypass that was
+        # fixed at the Policy layer. The gate must be enforced at
+        # every dispatch entry point, not only in one of them.
+
+        if not self.policy.capability_allowed(name):
+            return {
+                "ok": False,
+                "error": (
+                    f"الأداة معطلة أمنيًا: {name}"
+                ),
+            }
+
+
+        # ---------------------------------------------------------
         # 4. Policy argument validation
         # ---------------------------------------------------------
 

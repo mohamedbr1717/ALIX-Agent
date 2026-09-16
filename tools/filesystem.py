@@ -81,6 +81,18 @@ class FileSystemTools:
                 ):
                     continue
 
+                # SECURITY FIX: this method previously listed every
+                # non-dotfile entry unfiltered, unlike the list_files
+                # path actually used in core/agent.py._execute_tool_body,
+                # which skips anything self.policy.is_sensitive_path()
+                # flags (credentials.json, id_rsa, *.pem, etc. -- none
+                # of which necessarily start with a dot). That made
+                # this implementation leak sensitive filenames if it
+                # was ever wired back in. Both list_files
+                # implementations must apply the same filter.
+                if self.policy.is_sensitive_path(item):
+                    continue
+
                 try:
 
                     item_type = (
