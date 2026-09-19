@@ -94,7 +94,7 @@ class Policy:
                 "required": set(),
             },
             "git_status": {
-                "allowed": set(),
+                "allowed": {"action"},
                 "required": set(),
             },
             "remember_fact": {
