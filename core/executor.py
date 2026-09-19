@@ -297,6 +297,11 @@ class SafeExecutor:
             "AWS_SECRET",
             "GITHUB_TOKEN",
             "GH_TOKEN",
+
+            # Termux dynamic-linker injection must not cross the
+            # subprocess/sandbox boundary.
+            "LD_PRELOAD",
+            "LD_LIBRARY_PATH",
         )
 
         for key in list(env.keys()):
@@ -366,29 +371,77 @@ class SafeExecutor:
             ).to_dict()
 
         try:
-            lines = target.read_text(
-                encoding="utf-8",
-                errors="replace",
-            ).splitlines()
-
             start = max(1, int(start_line))
 
             if end_line is None:
-                end = len(lines)
+                end = None
             else:
                 end = max(start, int(end_line))
 
-            selected = lines[start - 1:end]
+            # Stream the file line-by-line.  Never materialize the complete
+            # file or its complete splitlines() representation in memory.
+            line_count = 0
+            selected_line_count = 0
+            output_parts = []
+            output_chars = 0
+            previous_selected = False
 
-            content = "\n".join(selected)
+            with target.open(
+                "r",
+                encoding="utf-8",
+                errors="replace",
+            ) as handle:
+                truncated_by_length = False
+
+                for raw_line in handle:
+                    line_count += 1
+
+                    if line_count < start:
+                        continue
+
+                    if end is not None and line_count > end:
+                        continue
+
+                    selected_line_count += 1
+
+                    # Preserve the historical "\n".join(...) contract
+                    # without storing all selected lines.
+                    line = raw_line.rstrip("\r\n")
+
+                    prefix = "\n" if previous_selected else ""
+                    previous_selected = True
+
+                    remaining = self.max_output - output_chars
+                    if remaining <= 0:
+                        truncated_by_length = True
+                        continue
+
+                    piece = prefix + line
+                    if len(piece) > remaining:
+                        piece = piece[:remaining]
+                        truncated_by_length = True
+
+                    output_parts.append(piece)
+                    output_chars += len(piece)
+
+            content = "".join(output_parts)
 
             evidence = {
                 "path": str(target.relative_to(self.policy.workspace)),
                 "exists": True,
                 "is_file": True,
-                "line_count": len(lines),
-                "returned_lines": len(selected),
+                "line_count": line_count,
+                "returned_lines": selected_line_count,
                 "size_bytes": target.stat().st_size,
+                "streamed": True,
+                # FIX: previously compared byte-size (includes trailing
+                # newlines) against character count of newline-stripped
+                # content -- that mismatch made almost every file with a
+                # trailing newline report output_truncated=True even
+                # when nothing was actually cut for length. Now this
+                # reflects only whether the max_output character cap
+                # actually cut something during the loop above.
+                "output_truncated": truncated_by_length,
             }
 
             return self._base_result(
@@ -396,7 +449,7 @@ class SafeExecutor:
                 started,
                 True,
                 "تمت قراءة الملف.",
-                stdout=self._truncate(content, self.max_output),
+                stdout=content,
                 evidence=evidence,
             ).to_dict()
 
@@ -448,9 +501,12 @@ class SafeExecutor:
                     target.name + ".alix-backup"
                 )
 
-                backup_path.write_bytes(
-                    target.read_bytes()
-                )
+                with target.open("rb") as source, backup_path.open("wb") as backup:
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        backup.write(chunk)
 
             target.write_text(
                 content,
@@ -583,9 +639,12 @@ class SafeExecutor:
                 target.name + ".alix-delete-backup"
             )
 
-            backup_path.write_bytes(
-                target.read_bytes()
-            )
+            with target.open("rb") as source, backup_path.open("wb") as backup:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    backup.write(chunk)
 
             target.unlink()
 
@@ -678,38 +737,36 @@ class SafeExecutor:
                     continue
 
                 try:
-                    text = file_path.read_text(
+                    with file_path.open(
+                        "r",
                         encoding="utf-8",
                         errors="ignore",
-                    )
+                    ) as handle:
+                        for line_number, line in enumerate(handle, 1):
+                            if pattern.lower() not in line.lower():
+                                continue
+
+                            relative = str(
+                                file_path.relative_to(
+                                    self.policy.workspace
+                                )
+                            )
+
+                            matches.append(
+                                {
+                                    "file": relative,
+                                    "line": line_number,
+                                    "content": self._truncate(
+                                        line.strip(),
+                                        500,
+                                    ),
+                                }
+                            )
+
+                            if len(matches) >= max_matches:
+                                break
                 except Exception:
                     continue
-
-                for line_number, line in enumerate(
-                    text.splitlines(),
-                    1,
-                ):
-                    if pattern.lower() in line.lower():
-
-                        relative = str(
-                            file_path.relative_to(
-                                self.policy.workspace
-                            )
-                        )
-
-                        matches.append(
-                            {
-                                "file": relative,
-                                "line": line_number,
-                                "content": self._truncate(
-                                    line.strip(),
-                                    500,
-                                ),
-                            }
-                        )
-
-                        if len(matches) >= max_matches:
-                            break
 
             return self._base_result(
                 "search_files",
@@ -875,75 +932,6 @@ class SafeExecutor:
                 },
             ).to_dict()
 
-            stdout = self._truncate(
-                result.stdout,
-                self.max_output,
-            )
-
-            stderr = self._truncate(
-                result.stderr,
-                2000,
-            )
-
-            ok = result.returncode == 0
-
-            # -----------------------------------------------------
-            # 6. Evidence
-            # -----------------------------------------------------
-            evidence = {
-                "argv": parts,
-                "executable": executable,
-                "cwd": str(self.policy.workspace),
-                "returncode": result.returncode,
-                "stdout_present": bool(stdout),
-                "stderr_present": bool(stderr),
-                "verified": True,
-            }
-
-            return self._base_result(
-                "run_command",
-                started,
-                ok,
-                (
-                    "تم تنفيذ الأمر والتحقق من نجاحه."
-                    if ok
-                    else "تم تنفيذ الأمر لكنه انتهى برمز خطأ."
-                ),
-                stdout=stdout,
-                stderr=stderr,
-                returncode=result.returncode,
-                evidence=evidence,
-            ).to_dict()
-
-        # ---------------------------------------------------------
-        # 7. Timeout
-        # ---------------------------------------------------------
-        except subprocess.TimeoutExpired as exc:
-            stdout = self._truncate(
-                getattr(exc, "stdout", ""),
-                self.max_output,
-            )
-
-            stderr = self._truncate(
-                getattr(exc, "stderr", ""),
-                2000,
-            )
-
-            return self._base_result(
-                "run_command",
-                started,
-                False,
-                f"انتهت مهلة التنفيذ ({self.command_timeout} ثانية).",
-                stdout=stdout,
-                stderr=stderr,
-                evidence={
-                    "argv": parts,
-                    "executable": executable,
-                    "timeout": self.command_timeout,
-                    "timed_out": True,
-                    "verified": True,
-                },
-            ).to_dict()
 
         # ---------------------------------------------------------
         # 8. البرنامج غير موجود
@@ -1224,18 +1212,6 @@ class SafeExecutor:
                 },
             ).to_dict()
 
-        except Exception as exc:
-            return self._base_result(
-                "git_status",
-                started,
-                False,
-                f"فشل Git: {exc}",
-                evidence={
-                    "git_action": action,
-                    "read_only": True,
-                    "verified": False,
-                },
-            ).to_dict()
 
     # ============================================================
     # Verification
