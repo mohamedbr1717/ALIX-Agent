@@ -37,6 +37,10 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     # (features/file_access) عبر composition root الخاص بها --
     # قرار ربط صريح اتُّخذ بعد تدقيق اعتمادية كامل، لا تسرب عرضي.
     ("core/registry.py", "features.file_access.composition"),
+    # core/agent.py._execute_tool_body وُجِّه أيضًا لنفس الشريحة --
+    # اكتُشف أن ToolRegistry لا يكفي وحده للوصول لمسار الوكيل الحي،
+    # فهذا استيراد ربط ثانٍ مقصود، لا تسرب.
+    ("core/agent.py", "features.file_access.composition"),
 }
 
 
