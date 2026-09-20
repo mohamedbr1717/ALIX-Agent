@@ -365,3 +365,39 @@ class TestPolicyAuthorizationAdapter(unittest.TestCase):
             )
         finally:
             outside.unlink(missing_ok=True)
+
+
+class TestReadFileLiveAgentWiring(unittest.TestCase):
+    """
+    يثبت أن مسار الوكيل الحي (core/agent.py._execute_tool_body)،
+    لا ToolRegistry بمعزل فقط، يصل فعليًا للشريحة الجديدة. هذه هي
+    الفجوة الحقيقية التي اكتُشفت: core/agent.py له توزيع (dispatch)
+    منفصل تمامًا عن core/registry.py، ورَبط ToolRegistry وحده لا
+    يكفي لتفعيل الشريحة من الوكيل الفعلي.
+    """
+
+    def test_agent_execute_tool_body_reaches_new_slice(self):
+        from core.agent import ALIXAgent
+        from core.policy import Policy
+
+        agent = ALIXAgent.__new__(ALIXAgent)
+        agent.policy = Policy()
+
+        target = agent.policy.workspace / "live_agent_wiring.txt"
+        target.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+        try:
+            result = agent._execute_tool_body(
+                "read_file",
+                {
+                    "path": "live_agent_wiring.txt",
+                    "start_line": 1,
+                    "end_line": 2,
+                },
+            )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["stdout"], "alpha\nbeta")
+            self.assertTrue(result["evidence"]["streamed"])
+        finally:
+            target.unlink(missing_ok=True)

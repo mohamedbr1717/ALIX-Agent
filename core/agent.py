@@ -837,11 +837,20 @@ class ALIXAgent:
             }
 
         elif name == "read_file":
-            return self.executor.read_file(
-                arguments.get("path", ""),
-                arguments.get("start_line", 1),
-                arguments.get("end_line")
+            # Redirected to the file_access vertical slice
+            # (Controller -> UseCase -> Authorization + Storage ->
+            # SafeExecutor) instead of calling SafeExecutor.read_file
+            # directly. Incremental, one tool at a time -- see
+            # SCHEMA_CONTRACT.md and test_architecture_boundaries.py
+            # for why a full ToolRegistry consolidation is deferred
+            # until every tool has migrated the same way.
+            from features.file_access.composition import (
+                build_read_file_controller,
             )
+
+            controller = build_read_file_controller(self.policy)
+
+            return controller.handle(arguments)
 
         elif name == "write_file":
             return self.executor.write_file(
