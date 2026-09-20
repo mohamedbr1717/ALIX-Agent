@@ -1,6 +1,7 @@
+import time
 from typing import Any, Callable, Dict
 
-from core.executor import SafeExecutor
+from core.executor import ExecutionResult, SafeExecutor
 
 
 class ToolRegistry:
@@ -125,6 +126,30 @@ class ToolRegistry:
         )
 
     # ========================================================
+    # SCHEMA HELPER
+    # ========================================================
+
+    @staticmethod
+    def _deny(name: str, started: float, message: str) -> dict:
+        # SCHEMA FIX: every early-rejection path in execute() used to
+        # return a bare {"ok": False, "error": ...} shape, different
+        # from the canonical ExecutionResult contract every
+        # SafeExecutor tool returns
+        # (ok/action/message/stdout/stderr/returncode/evidence/duration).
+        # A caller that only understands the canonical shape (as
+        # Agent.execute_tool does) would see a malformed result for
+        # exactly the security-relevant rejection paths (policy
+        # denial, capability gate) -- the cases where a clear,
+        # consistent shape matters most. Every path here now goes
+        # through the same ExecutionResult.to_dict().
+        return ExecutionResult(
+            ok=False,
+            action=name,
+            message=message,
+            duration=time.monotonic() - started,
+        ).to_dict()
+
+    # ========================================================
     # EXECUTE
     # ========================================================
 
@@ -140,15 +165,18 @@ class ToolRegistry:
         User confirmation remains the responsibility of Agent.
         """
 
+        started = time.monotonic()
+
         # ---------------------------------------------------------
         # 1. Tool existence
         # ---------------------------------------------------------
 
         if not self.has(name):
-            return {
-                "ok": False,
-                "error": f"الأداة غير موجودة: {name}",
-            }
+            return self._deny(
+                name,
+                started,
+                f"الأداة غير موجودة: {name}",
+            )
 
         # ---------------------------------------------------------
         # 2. Normalize arguments
@@ -158,23 +186,22 @@ class ToolRegistry:
             arguments = {}
 
         if not isinstance(arguments, dict):
-            return {
-                "ok": False,
-                "error": "arguments يجب أن تكون JSON object.",
-            }
+            return self._deny(
+                name,
+                started,
+                "arguments يجب أن تكون JSON object.",
+            )
 
         # ---------------------------------------------------------
         # 3. Policy tool allowlist
         # ---------------------------------------------------------
 
         if not self.policy.tool_allowed(name):
-            return {
-                "ok": False,
-                "error": (
-                    f"الأداة مرفوضة بواسطة "
-                    f"سياسة الأمان: {name}"
-                ),
-            }
+            return self._deny(
+                name,
+                started,
+                f"الأداة مرفوضة بواسطة سياسة الأمان: {name}",
+            )
 
         # ---------------------------------------------------------
         # 3b. Capability gate
@@ -189,13 +216,11 @@ class ToolRegistry:
         # every dispatch entry point, not only in one of them.
 
         if not self.policy.capability_allowed(name):
-            return {
-                "ok": False,
-                "error": (
-                    f"الأداة معطلة أمنيًا: {name}"
-                ),
-            }
-
+            return self._deny(
+                name,
+                started,
+                f"الأداة معطلة أمنيًا: {name}",
+            )
 
         # ---------------------------------------------------------
         # 4. Policy argument validation
@@ -208,30 +233,25 @@ class ToolRegistry:
             )
 
         except AttributeError:
-            return {
-                "ok": False,
-                "error": (
-                    "Policy لا توفر "
-                    "validate_tool_arguments()."
-                ),
-            }
+            return self._deny(
+                name,
+                started,
+                "Policy لا توفر validate_tool_arguments().",
+            )
 
         except Exception as exc:
-            return {
-                "ok": False,
-                "error": (
-                    f"فشل التحقق من arguments: {exc}"
-                ),
-            }
+            return self._deny(
+                name,
+                started,
+                f"فشل التحقق من arguments: {exc}",
+            )
 
         if not valid:
-            return {
-                "ok": False,
-                "error": (
-                    "معطيات الأداة غير صالحة "
-                    "أو مرفوضة بواسطة Policy."
-                ),
-            }
+            return self._deny(
+                name,
+                started,
+                "معطيات الأداة غير صالحة أو مرفوضة بواسطة Policy.",
+            )
 
         # ---------------------------------------------------------
         # 5. Execute registered function
@@ -249,23 +269,24 @@ class ToolRegistry:
             if isinstance(result, dict):
                 return result
 
-            return {
-                "ok": True,
-                "result": result,
-            }
+            # SCHEMA FIX: a non-dict return from a registered tool
+            # (defensive path -- every current tool already returns
+            # the canonical dict) is now wrapped in the same shape
+            # instead of a bespoke {"ok": True, "result": ...}.
+            return ExecutionResult(
+                ok=True,
+                action=name,
+                message="",
+                duration=time.monotonic() - started,
+                evidence={"result": result},
+            ).to_dict()
 
         except TypeError as exc:
-            return {
-                "ok": False,
-                "error": (
-                    f"arguments غير صالحة "
-                    f"للأداة {name}: {exc}"
-                ),
-            }
+            return self._deny(
+                name,
+                started,
+                f"arguments غير صالحة للأداة {name}: {exc}",
+            )
 
         except Exception as exc:
-            return {
-                "ok": False,
-                "error": str(exc),
-            }
-
+            return self._deny(name, started, str(exc))

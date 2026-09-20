@@ -45,21 +45,36 @@ class FileSystemTools:
         path=".",
         all=False
     ):
-        base = self._path(path)
+        import time
+        from core.executor import ExecutionResult
+
+        started = time.monotonic()
+
+        try:
+            base = self._path(path)
+        except PermissionError as exc:
+            return ExecutionResult(
+                ok=False,
+                action="list_files",
+                message=str(exc),
+                duration=time.monotonic() - started,
+            ).to_dict()
 
         if not base.exists():
-
-            return {
-                "ok": False,
-                "error": "المسار غير موجود."
-            }
+            return ExecutionResult(
+                ok=False,
+                action="list_files",
+                message="المسار غير موجود.",
+                duration=time.monotonic() - started,
+            ).to_dict()
 
         if not base.is_dir():
-
-            return {
-                "ok": False,
-                "error": "المسار ليس مجلدًا."
-            }
+            return ExecutionResult(
+                ok=False,
+                action="list_files",
+                message="المسار ليس مجلدًا.",
+                duration=time.monotonic() - started,
+            ).to_dict()
 
         items = []
 
@@ -119,11 +134,12 @@ class FileSystemTools:
                 })
 
         except Exception as e:
-
-            return {
-                "ok": False,
-                "error": str(e)
-            }
+            return ExecutionResult(
+                ok=False,
+                action="list_files",
+                message=str(e),
+                duration=time.monotonic() - started,
+            ).to_dict()
 
         try:
 
@@ -141,11 +157,24 @@ class FileSystemTools:
 
             relative_path = "."
 
-        return {
-            "ok": True,
-            "path": relative_path,
-            "items": items[:500]
-        }
+        # SCHEMA FIX: this method used to return its own ad-hoc shape
+        # ({"ok", "error"} / {"ok", "path", "items"}), the only tool
+        # in the registry that didn't match the canonical
+        # ExecutionResult contract every SafeExecutor method returns
+        # (ok/action/message/stdout/stderr/returncode/evidence/duration).
+        # Structured data now lives under evidence, matching the
+        # convention used by system_info and every other tool.
+        return ExecutionResult(
+            ok=True,
+            action="list_files",
+            message="تم سرد الملفات.",
+            duration=time.monotonic() - started,
+            evidence={
+                "path": relative_path,
+                "items": items[:500],
+                "count": len(items),
+            },
+        ).to_dict()
 
     # ========================================================
     # READ
