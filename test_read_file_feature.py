@@ -322,3 +322,46 @@ class TestReadFileControllerBoundary(unittest.TestCase):
         self.assertEqual(request.end_line, 7)
         self.assertEqual(request.max_output, 123)
 
+
+
+class TestPolicyAuthorizationAdapter(unittest.TestCase):
+    """
+    اختبارات حقيقية لحد أمان فعلي: PolicyAuthorizationAdapter يغلّف
+    Policy الحقيقي، لا مزيّفًا. كل الاختبارات التسعة السابقة تستخدم
+    AllowingAuthorization/DenyingAuthorization المزيّفة، أو تمر
+    بمسار نجاح واحد فقط عبر composition root -- لا شيء يثبت أن
+    can_read_file() الحقيقي يرفض فعليًا مسارًا خارج workspace.
+    """
+
+    def setUp(self):
+        from features.file_access.infrastructure.adapters.policy_authorization import (
+            PolicyAuthorizationAdapter,
+        )
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.workspace = Path(self.tmp.name)
+
+        self.policy = Policy()
+        self.policy.workspace = self.workspace
+
+        self.adapter = PolicyAuthorizationAdapter(self.policy)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_allows_path_inside_workspace(self):
+        target = self.workspace / "allowed.txt"
+        target.write_text("ok", encoding="utf-8")
+
+        self.assertTrue(self.adapter.can_read_file("allowed.txt"))
+
+    def test_denies_path_outside_workspace(self):
+        outside = Path(self.tmp.name).parent / "outside_secret.txt"
+        outside.write_text("secret", encoding="utf-8")
+
+        try:
+            self.assertFalse(
+                self.adapter.can_read_file(str(outside))
+            )
+        finally:
+            outside.unlink(missing_ok=True)
