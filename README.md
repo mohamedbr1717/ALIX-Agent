@@ -1,70 +1,71 @@
-# ALIX V5 Enterprise Architecture 🚀
+# ALIX-Agent 🤖
 
-**ALIX V5 Enterprise** (`v5.0.0`) هو نظام تشغيل وتأمين وكلاء الذكاء الاصطناعي (AI Agent OS) المصمم للتنفيذ المحلي الآمن، مع دعم كامل لبروتوكول MCP، واسترجاع دلالي موفر للموارد تحت الملي ثانية.
+وكيل ذكاء اصطناعي شخصي يعمل على Termux (Android) — محرك تنفيذ هجين آمن،
+بتوجيه مزدوج بين OpenRouter ونموذج محلي.
 
----
+## البنية
 
-## 🏗️ المعمارية الهندسية (Core Architecture)
+```
+main.py
+└── core/agent.py              # ALIXAgent: حلقة الوكيل (تفكير → أدوات → تنفيذ)
+    ├── core/registry.py       # ToolRegistry: تسجيل الأدوات والتوجيه
+    ├── core/policy.py         # Policy: عزل مساحة العمل وحدود الموارد
+    ├── core/executor.py       # SafeExecutor: تنفيذ آمن للأوامر
+    ├── core/memory.py         # ذاكرة دائمة (memory/memory.json)
+    ├── core/llm.py            # HybridLLM: OpenRouter أولًا، ثم المحلي احتياطيًا
+    ├── core/sandbox.py        # صندوق عزل للتنفيذ
+    ├── core/observability.py  # مراقبة وتشخيص
+    └── core/feature_bridge.py # جسر الشرائح المهيكلة
+└── features/file_access/      # شريحة رأسية: domain → application → infrastructure → interfaces
+    ├── read_file / write_file  (dto, use_cases, ports, adapters, controllers)
+    └── composition.py           # تجميع الشريحة
+└── mcp_server.py              # خادم MCP (JSON-RPC 2.0) مبني على الكور
+```
 
-يتكون النظام من أربع طبقات رئيسية مصلدة:
+## الإعداد
 
-1. **بروتوكول MCP الموحد (`mcp_server.py`)**:
-   * تطبيق معيار **Model Context Protocol (JSON-RPC 2.0)** عبر القناة القياسية (`stdio`).
-   * فصل تام للمجاري: تخصيص `stdout` للبيانات التزامنية الصافية، وتوجيه كافة السجلات والتشخيصات إلى `stderr` لمنع التلوث البنيوي.
-
-2. **محرك العزل الهجين (AST Policy Enforcer + WASM Sandbox)**:
-   * **AST Enforcer (`core/policy.py`)**: فحص شجرة النحو المجرد لتطبيقات الأكواد قبل التنفيذ بزمن استجابة < 0.35 ms.
-   * **WASM Micro-Sandbox (`wasm_sandbox.py`)**: بيئة معزولة لعزل الحمولات البرمجية ومنع الوصول غير المصرح لنظام التشغيل.
-
-3. **سجل التدقيق التشفيري (`merkle_logger.py`)**:
-   * توثيق تعاقبي لكل عمليات التنفيذ في شجرة Merkle باستخدام دالة **SHA-256**.
-   * كشف التزوير والتعديل الجنائي واكتشاف الانحرافات التشغيلية تلقائياً.
-
-4. **الذاكرة المتجهية المكمّمة (`quantized_vector_store.py`)**:
-   * محرك بحث دلالي موفر للموارد معتمد على تكميم المتجهات **INT8 Quantization**.
-   * زمن استرجاع تحت الملي ثانية (≈ 0.22 ms) مع معامل تطابق يتجاوز 0.97.
-
----
-
-## 📊 مؤشرات الأداء الميداني (Benchmarks)
-
-| المكون / العملية | زمن الاستجابة (Latency) | معيار السلامة والامتثال |
-|---|---|---|
-| **MCP Handshake (`initialize`)** | < 0.45 ms | JSON-RPC 2.0 Compliant |
-| **AST Policy Evaluation** | ≈ 0.34 ms | Strict_Hardened_AST_Policy |
-| **INT8 Vector Search** | ≈ 0.22 ms | Cosine Similarity > 0.97 |
-| **CI/CD Test Coverage** | - | > 80% (Pass) |
-
----
-
-## ⚡ التشغيل والربط السريع
-
-### 1. تشغيل خادم MCP
 ```bash
-python mcp_server.py
+pip install python-dotenv openai
+pkg install proot -y
 ```
 
-### 2. تشغيل مجموعة الاختبارات الشاملة
+أنشئ ملف `.env` في جذر المشروع (مستثنى من git):
+
+```
+OPENROUTER_API_KEY=sk-or-v1-...
+# اختياري:
+OPENROUTER_MODEL=openai/gpt-oss-120b
+ALIX_LOCAL_MODEL=Qwen3.5-4B-Instruct-Q4_K_M.gguf
+```
+
+### نموذج محلي (اختياري)
+
 ```bash
-python -m unittest test_v5_full_coverage.py
+~/llama.cpp/build/bin/llama-server -m /path/to/model.gguf --port 8081 -c 4096 &
 ```
 
-### 3. الربط مع Claude Desktop
-أضف الإعدادات التالية في ملف `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "alix-agent": {
-      "command": "python3",
-      "args": [
-        "/المسار/الكامل/إلى/ALIX-Agent/mcp_server.py"
-      ]
-    }
-  }
-}
+الوكيل يستخدم OpenRouter أولًا عند توفر مفتاح صالح،
+ويتحول تلقائيًا إلى المحلي (`127.0.0.1:8081`) عند الفشل.
+
+## التشغيل
+
+```bash
+python main.py
 ```
 
----
+أوامر داخلية: `status` · `memory` · `clear-history` · `help` · `exit`
 
-## 🛡️ الترخيص والأمان
-تخضع كافة الاستدعاءات عبر أداة `alix_execute_code` لفحص معيار سياسة الأمان الصارمة `Strict_Hardened_AST_Policy (v4.1.0)`.
+## الاختبارات
+
+```bash
+python -m pytest test_mcp.py test_architecture_boundaries.py \
+  test_read_file_feature.py test_write_file_feature.py -q
+python test_alix_real_evaluation_v2.py   # تقييم التنفيذ الحقيقي: 16 فحصًا
+```
+
+## الأمان
+
+- حصر كل المسارات داخل `workspace/`
+- رفض محاولات حقن الأوامر والقوائم السوداء
+- fail-closed: الأدوات المعطلة لا تُحدث أي أثر جانبي
+- نسخة احتياطية `.alix-backup` عند استبدال أي ملف
