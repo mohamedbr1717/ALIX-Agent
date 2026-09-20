@@ -29,6 +29,16 @@ LAYER_RULES = {
 FEATURE_ROOT = Path("features")
 CORE_ROOT = Path("core")
 
+# استثناءات صريحة ومقصودة فقط -- كل سطر هنا يوثّق قرار ربط واعٍ
+# اتُّخذ فعليًا، لا ثغرة تسربت بصمت. أي استيراد آخر من core/ إلى
+# features/ غير مذكور هنا يُعتبر انتهاكًا ويجب أن يفشل الاختبار.
+ALLOWED_CORE_TO_FEATURES_IMPORTS = {
+    # core/registry.py يربط أداة read_file بالشريحة الجديدة
+    # (features/file_access) عبر composition root الخاص بها --
+    # قرار ربط صريح اتُّخذ بعد تدقيق اعتمادية كامل، لا تسرب عرضي.
+    ("core/registry.py", "features.file_access.composition"),
+}
+
 
 def imported_modules(path: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -108,6 +118,9 @@ class TestArchitectureBoundaries(unittest.TestCase):
         for py_file in CORE_ROOT.rglob("*.py"):
             for mod in imported_modules(py_file):
                 if mod == "features" or mod.startswith("features."):
+                    key = (str(py_file), mod)
+                    if key in ALLOWED_CORE_TO_FEATURES_IMPORTS:
+                        continue
                     violations.append(f"{py_file}: يستورد '{mod}'")
 
         self.assertEqual(

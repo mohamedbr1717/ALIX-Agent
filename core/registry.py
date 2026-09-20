@@ -63,6 +63,9 @@ class ToolRegistry:
         # list_files remains on FileSystemTools because SafeExecutor
         # does not currently expose an equivalent operation.
         from tools.filesystem import FileSystemTools
+        from features.file_access.composition import (
+            build_read_file_controller,
+        )
 
         filesystem = FileSystemTools(self.policy)
 
@@ -71,9 +74,18 @@ class ToolRegistry:
             filesystem.list_files,
         )
 
+        # Wired to the new Vertical Slice (features/file_access)
+        # instead of SafeExecutor.read_file directly. The lambda is
+        # the ToolRegistry-specific adaptation glue -- it belongs
+        # here at the composition/wiring point, not inside
+        # ReadFileController itself, which must stay agnostic of any
+        # particular caller's calling convention (**kwargs here vs.
+        # a single dict for any other consumer).
+        read_file_controller = build_read_file_controller(self.policy)
+
         self.register(
             "read_file",
-            self.executor.read_file,
+            lambda **kwargs: read_file_controller.handle(kwargs),
         )
 
         self.register(
