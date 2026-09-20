@@ -50,3 +50,19 @@ class WorkspaceFileStorageAdapter(FileStoragePort):
             start_line=start_line,
             end_line=end_line,
         )
+
+    def write_file(
+        self,
+        path: str,
+        content: str,
+    ) -> dict[str, Any]:
+        # Same delegation philosophy as read_file above: SafeExecutor
+        # is the hardened, tested authority for writes -- path
+        # confinement, .alix-backup before overwrite, and independent
+        # post-write verification. Duplicating that logic here is how
+        # the old parallel implementations drifted apart; the
+        # adapter's job is to satisfy the port contract, nothing more.
+        # SafeExecutor.__init__ does no I/O and is cheap.
+        executor = SafeExecutor(self._policy)
+
+        return executor.write_file(path, content)

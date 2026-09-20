@@ -11,8 +11,9 @@
 composition.py (جذر التركيب) مستثنى عمدًا -- هو المكان الوحيد
 المسموح له بمعرفة كل الطبقات معًا وربطها.
 
-كما يتحقق أن core/*.py القديم لا يستورد من features/ إطلاقًا حتى
-يصبح الربط قرارًا صريحًا لاحقًا، لا تسربًا غير مقصود.
+كما يتحقق أن core/*.py لا يستورد من features/ إلا عبر
+بوابة الربط الصريحة core/feature_bridge.py، حتى يبقى انتقال
+الـ features قرارًا معماريًا مركزيًا لا تسربًا غير مقصود.
 """
 
 import ast
@@ -33,14 +34,10 @@ CORE_ROOT = Path("core")
 # اتُّخذ فعليًا، لا ثغرة تسربت بصمت. أي استيراد آخر من core/ إلى
 # features/ غير مذكور هنا يُعتبر انتهاكًا ويجب أن يفشل الاختبار.
 ALLOWED_CORE_TO_FEATURES_IMPORTS = {
-    # core/registry.py يربط أداة read_file بالشريحة الجديدة
-    # (features/file_access) عبر composition root الخاص بها --
-    # قرار ربط صريح اتُّخذ بعد تدقيق اعتمادية كامل، لا تسرب عرضي.
-    ("core/registry.py", "features.file_access.composition"),
-    # core/agent.py._execute_tool_body وُجِّه أيضًا لنفس الشريحة --
-    # اكتُشف أن ToolRegistry لا يكفي وحده للوصول لمسار الوكيل الحي،
-    # فهذا استيراد ربط ثانٍ مقصود، لا تسرب.
-    ("core/agent.py", "features.file_access.composition"),
+    # بوابة الربط الوحيدة من core/ إلى features/.
+    # feature_bridge.py مسؤول عن composition/wiring فقط؛
+    # بقية core/ لا تعرف تفاصيل vertical slices مباشرة.
+    ("core/feature_bridge.py", "features.file_access.composition"),
 }
 
 
@@ -130,7 +127,7 @@ class TestArchitectureBoundaries(unittest.TestCase):
         self.assertEqual(
             violations,
             [],
-            "core/ يستورد من features/ رغم عدم اتخاذ قرار الربط بعد:\n"
+            "core/ يستورد من features/ خارج بوابة الربط المسموح بها:\n"
             + "\n".join(violations),
         )
 

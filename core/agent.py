@@ -12,6 +12,7 @@ from core.policy import Policy
 from core.memory import Memory
 from core.executor import SafeExecutor
 from core.observability import ObservabilityLogger
+from core.feature_bridge import build_migrated_tool_handlers
 
 
 
@@ -262,6 +263,12 @@ class ALIXAgent:
         self.policy = Policy()
         self.memory = Memory()
         self.executor = SafeExecutor(policy=self.policy)
+
+        # الأدوات المُهاجَرة لشرائح features/ الجديدة -- تُبنى مرة
+        # واحدة هنا، لا في كل استدعاء داخل _execute_tool_body.
+        self._migrated_handlers = build_migrated_tool_handlers(
+            self.policy
+        )
 
         self.llm = HybridLLM(use_remote=True)
 
@@ -775,11 +782,31 @@ class ALIXAgent:
             )
 
 
+    def _ensure_migrated_handlers(self):
+        """تهيئة handlers المُهاجرة مرة واحدة عند الحاجة.
+
+        المسار الطبيعي يبنيها في __init__، بينما بعض مسارات
+        الاختبار/الاستدعاء المباشر قد تنشئ الكائن عبر __new__.
+        لا نعيد البناء بعد أول تهيئة.
+        """
+        if not hasattr(self, "_migrated_handlers"):
+            self._migrated_handlers = build_migrated_tool_handlers(
+                self.policy
+            )
+
+        return self._migrated_handlers
+
+
     def _execute_tool_body(
         self,
         name: str,
         arguments: dict,
     ) -> dict:
+
+        migrated_handlers = self._ensure_migrated_handlers()
+
+        if name in migrated_handlers:
+            return migrated_handlers[name](**arguments)
 
         if name == "list_files":
             path = arguments.get("path", ".")
@@ -835,28 +862,6 @@ class ALIXAgent:
                     "items": items[:200]
                 }
             }
-
-        elif name == "read_file":
-            # Redirected to the file_access vertical slice
-            # (Controller -> UseCase -> Authorization + Storage ->
-            # SafeExecutor) instead of calling SafeExecutor.read_file
-            # directly. Incremental, one tool at a time -- see
-            # SCHEMA_CONTRACT.md and test_architecture_boundaries.py
-            # for why a full ToolRegistry consolidation is deferred
-            # until every tool has migrated the same way.
-            from features.file_access.composition import (
-                build_read_file_controller,
-            )
-
-            controller = build_read_file_controller(self.policy)
-
-            return controller.handle(arguments)
-
-        elif name == "write_file":
-            return self.executor.write_file(
-                arguments.get("path", ""),
-                arguments.get("content", "")
-            )
 
         elif name == "create_directory":
             return self.executor.create_directory(

@@ -81,32 +81,45 @@ class Evaluation:
     # ------------------------------------------------------------
 
     def test_registry_dispatch(self):
-        expected = {
+        # Tools still served directly by bound methods.
+        expected_bound = {
             "create_directory": "SafeExecutor.create_directory",
             "delete_file": "SafeExecutor.delete_file",
             "git_status": "SafeExecutor.git_read_only",
             "list_files": "FileSystemTools.list_files",
-            "read_file": "SafeExecutor.read_file",
             "run_command": "SafeExecutor.run_command",
             "run_python": "SafeExecutor.run_python",
             "system_info": "SafeExecutor.system_info",
-            "write_file": "SafeExecutor.write_file",
+        }
+        # Tools migrated to the Clean-Architecture vertical slice
+        # (features/file_access), registered via the feature bridge.
+        # These are plain functions, not bound methods.
+        expected_migrated = {"read_file", "write_file"}
+
+        def describe(fn):
+            owner = getattr(fn, "__self__", None)
+            if owner is None:
+                return f"function:{getattr(fn, '__name__', '?')}"
+            return f"{owner.__class__.__name__}.{fn.__name__}"
+
+        actual = {
+            name: describe(fn)
+            for name, fn in self.registry.tools.items()
         }
 
-        actual = {}
-
-        for name, fn in self.registry.tools.items():
-            actual[name] = (
-                f"{fn.__self__.__class__.__name__}.{fn.__name__}"
-            )
-
-        missing = sorted(set(expected) - set(actual))
+        expected_names = set(expected_bound) | expected_migrated
+        missing = sorted(expected_names - set(actual))
 
         wrong = {
-            name: (expected[name], actual.get(name))
-            for name in expected
-            if actual.get(name) != expected[name]
+            name: (expected_bound[name], actual.get(name))
+            for name in expected_bound
+            if actual.get(name) != expected_bound[name]
         }
+        for name in expected_migrated:
+            handler = self.registry.tools.get(name)
+            bridge = self.registry._migrated_handlers.get(name)
+            if handler is not bridge:
+                wrong[name] = ("migrated slice handler", describe(handler))
 
         if missing or wrong:
             self.record(
@@ -276,12 +289,15 @@ class Evaluation:
             self.policy.capability_allowed("run_python") is False
         )
 
+        # SCHEMA_CONTRACT.md: the denial reason lives in "message";
+        # "error" is not a contract field (kept below as fallback only).
         denied = (
             result.get("ok") is False
             and (
-                "معطلة" in str(result.get("error", ""))
-                or "disabled"
-                in str(result.get("error", "")).lower()
+                "معطلة" in str(result.get("message", ""))
+                or "disabled" in str(result.get("message", "")).lower()
+                or "معطلة" in str(result.get("error", ""))
+                or "disabled" in str(result.get("error", "")).lower()
             )
         )
 

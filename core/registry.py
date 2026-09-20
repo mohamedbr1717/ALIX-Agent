@@ -2,6 +2,7 @@ import time
 from typing import Any, Callable, Dict
 
 from core.executor import ExecutionResult, SafeExecutor
+from core.feature_bridge import build_migrated_tool_handlers
 
 
 class ToolRegistry:
@@ -19,6 +20,13 @@ class ToolRegistry:
         self.policy = policy
         self.executor = SafeExecutor(policy=self.policy)
         self.tools: Dict[str, Callable] = {}
+
+        # Migrated vertical slices are exposed through the single
+        # core feature bridge. ToolRegistry does not know feature
+        # implementation details.
+        self._migrated_handlers = build_migrated_tool_handlers(
+            self.policy
+        )
 
         self._register_tools()
 
@@ -63,9 +71,6 @@ class ToolRegistry:
         # list_files remains on FileSystemTools because SafeExecutor
         # does not currently expose an equivalent operation.
         from tools.filesystem import FileSystemTools
-        from features.file_access.composition import (
-            build_read_file_controller,
-        )
 
         filesystem = FileSystemTools(self.policy)
 
@@ -74,18 +79,16 @@ class ToolRegistry:
             filesystem.list_files,
         )
 
-        # Wired to the new Vertical Slice (features/file_access)
-        # instead of SafeExecutor.read_file directly. The lambda is
-        # the ToolRegistry-specific adaptation glue -- it belongs
-        # here at the composition/wiring point, not inside
-        # ReadFileController itself, which must stay agnostic of any
-        # particular caller's calling convention (**kwargs here vs.
-        # a single dict for any other consumer).
-        read_file_controller = build_read_file_controller(self.policy)
-
+        # Migrated vertical slices are registered through the
+        # core feature bridge.
         self.register(
             "read_file",
-            lambda **kwargs: read_file_controller.handle(kwargs),
+            self._migrated_handlers["read_file"],
+        )
+
+        self.register(
+            "write_file",
+            self._migrated_handlers["write_file"],
         )
 
         self.register(
@@ -93,10 +96,6 @@ class ToolRegistry:
             self.executor.create_directory,
         )
 
-        self.register(
-            "write_file",
-            self.executor.write_file,
-        )
 
         self.register(
             "delete_file",

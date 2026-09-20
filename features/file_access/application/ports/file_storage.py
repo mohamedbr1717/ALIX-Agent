@@ -14,3 +14,11 @@ class FileStoragePort(ABC):
         max_output: int = 4000,
     ) -> dict[str, Any]:
         raise NotImplementedError
+
+    @abstractmethod
+    def write_file(
+        self,
+        path: str,
+        content: str,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
