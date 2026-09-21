@@ -105,6 +105,14 @@ class Policy:
                 "allowed": {"path"},
                 "required": {"path"},
             },
+            "web_search": {
+                "allowed": {"query", "max_results"},
+                "required": {"query"},
+            },
+            "web_fetch": {
+                "allowed": {"url", "max_chars"},
+                "required": {"url"},
+            },
         }
 
         self.capabilities = {
@@ -127,6 +135,9 @@ class Policy:
             "run_command": "execute",
 
             "delete_file": "destructive",
+
+            "web_search": "read",
+            "web_fetch": "read",
         }
 
         # =========================================================
@@ -833,6 +844,14 @@ class Policy:
             },
             "verify_file": {
                 "path": str,
+            },
+            "web_search": {
+                "query": str,
+                "max_results": int,
+            },
+            "web_fetch": {
+                "url": str,
+                "max_chars": int,
             },
         }
 
