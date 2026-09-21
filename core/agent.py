@@ -12,7 +12,11 @@ from core.policy import Policy
 from core.memory import Memory
 from core.executor import SafeExecutor
 from core.observability import ObservabilityLogger
-from core.prompt_guard import guard_tool_output, SYSTEM_GUARD_ADDENDUM
+from core.prompt_guard import (
+    guard_tool_output,
+    neutralize_tool_call_tags,
+    SYSTEM_GUARD_ADDENDUM,
+)
 from core.feature_bridge import build_migrated_tool_handlers
 
 
@@ -1231,6 +1235,9 @@ class ALIXAgent:
             ensure_ascii=False
         )
 
+        # Memory is untrusted data: neutralize <tool_call> tags so the
+        # extract_tool_calls() regex fallback can never execute them.
+        memory_payload, _tag_findings = neutralize_tool_call_tags(memory_payload)
         if len(memory_payload) > self.MAX_MEMORY_CONTEXT_CHARS:
             memory_payload = (
                 memory_payload[:self.MAX_MEMORY_CONTEXT_CHARS]
