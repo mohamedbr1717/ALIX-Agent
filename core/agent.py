@@ -887,59 +887,18 @@ class ALIXAgent:
             return migrated_handlers[name](**arguments)
 
         if name == "list_files":
-            path = arguments.get("path", ".")
-
-            target = self.policy.validate_file_path(path)
-
-            if target is None:
-                return {
-                    "ok": False,
-                    "error": "المسار غير مسموح."
-                }
-
-            if not target.exists():
-                return {
-                    "ok": False,
-                    "error": "المسار غير موجود."
-                }
-
-            if not target.is_dir():
-                return {
-                    "ok": False,
-                    "error": "المسار ليس مجلدًا."
-                }
-
-            items = []
-
-            for item in sorted(
-                target.iterdir(),
-                key=lambda p: p.name.lower()
-            ):
-                if self.policy.is_sensitive_path(item):
-                    continue
-
-                items.append(
-                    {
-                        "name": item.name,
-                        "type": (
-                            "directory"
-                            if item.is_dir()
-                            else "file"
-                        )
-                    }
-                )
-
-            return {
-                "ok": True,
-                "evidence": {
-                    "path": str(
-                        target.relative_to(
-                            self.policy.workspace
-                        )
-                    ),
-                    "items": items[:200]
-                }
-            }
+            # UNIFICATION (2026-09-21): single canonical implementation.
+            # The old inline body diverged behaviorally from
+            # tools.filesystem.FileSystemTools.list_files (dot-files
+            # always shown, name-only sort, ad-hoc result shape,
+            # 200-item cap, no sizes). All list_files traffic now goes
+            # through the canonical implementation (dot-files hidden
+            # unless all=True, ExecutionResult contract).
+            from tools.filesystem import FileSystemTools
+            return FileSystemTools(self.policy).list_files(
+                arguments.get("path", "."),
+                arguments.get("all", False),
+            )
 
         elif name == "create_directory":
             return self.executor.create_directory(
