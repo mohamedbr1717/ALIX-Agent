@@ -6,6 +6,13 @@ from typing import Any
 
 class FileStoragePort(ABC):
     @abstractmethod
+    def delete_file(
+        self,
+        path: str,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
     def read_file(
         self,
         path: str,

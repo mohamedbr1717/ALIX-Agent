@@ -66,3 +66,18 @@ class WorkspaceFileStorageAdapter(FileStoragePort):
         executor = SafeExecutor(self._policy)
 
         return executor.write_file(path, content)
+
+    def delete_file(
+        self,
+        path: str,
+    ) -> dict[str, Any]:
+        # Same delegation philosophy as read_file/write_file:
+        # SafeExecutor is the hardened, tested authority for
+        # deletion -- path confinement, sensitive-path rejection,
+        # .alix-delete-backup before unlink, and independent
+        # post-delete verification. Duplicating that logic here is
+        # how the old parallel implementations drifted apart.
+        # SafeExecutor.__init__ does no I/O and is cheap.
+        executor = SafeExecutor(self._policy)
+
+        return executor.delete_file(path)

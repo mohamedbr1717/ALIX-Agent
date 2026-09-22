@@ -905,11 +905,6 @@ class ALIXAgent:
                 arguments.get("path", "")
             )
 
-        elif name == "delete_file":
-            return self.executor.delete_file(
-                arguments.get("path", "")
-            )
-
         elif name == "search_files":
             return self.executor.search_files(
                 arguments.get("pattern", ""),

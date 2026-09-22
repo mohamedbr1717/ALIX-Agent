@@ -24,6 +24,7 @@ def build_migrated_tool_handlers(
     policy: Any,
 ) -> Dict[str, Callable[..., dict]]:
     from features.file_access.composition import (
+        build_delete_file_controller,
         build_read_file_controller,
         build_write_file_controller,
     )
@@ -31,7 +32,10 @@ def build_migrated_tool_handlers(
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
 
+    delete_file_controller = build_delete_file_controller(policy)
+
     return {
+        "delete_file": lambda **kwargs: delete_file_controller.handle(kwargs),
         "read_file": lambda **kwargs: read_file_controller.handle(kwargs),
         "write_file": lambda **kwargs: write_file_controller.handle(kwargs),
     }

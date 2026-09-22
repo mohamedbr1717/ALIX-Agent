@@ -92,6 +92,11 @@ class ToolRegistry:
         )
 
         self.register(
+            "delete_file",
+            self._migrated_handlers["delete_file"],
+        )
+
+        self.register(
             "create_directory",
             self.executor.create_directory,
         )
