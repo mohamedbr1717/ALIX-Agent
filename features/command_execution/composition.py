@@ -1,4 +1,8 @@
 from __future__ import annotations
+from features.command_execution.application.use_cases.run_python import RunPythonUseCase
+from features.command_execution.infrastructure.adapters.executor_script_runner import ExecutorScriptRunnerAdapter
+from features.command_execution.infrastructure.adapters.policy_script_authorization import PolicyScriptAuthorizationAdapter
+from features.command_execution.interfaces.controllers.run_python_controller import RunPythonController
 
 from typing import Any
 
@@ -26,3 +30,13 @@ def build_run_command_controller(
         authorization=authorization,
     )
     return RunCommandController(use_case)
+
+
+def build_run_python_controller(policy):
+    """Build the run_python controller with its default adapters."""
+    return RunPythonController(
+        RunPythonUseCase(
+            authorization=PolicyScriptAuthorizationAdapter(policy),
+            runner=ExecutorScriptRunnerAdapter(policy),
+        )
+    )

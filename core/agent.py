@@ -925,10 +925,6 @@ class ALIXAgent:
                 arguments.get("max_chars", 8000),
             )
 
-        elif name == "run_python":
-            return self.executor.run_python(
-                arguments.get("script_path", "")
-            )
 
         elif name == "system_info":
             return self.executor.system_info()

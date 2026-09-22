@@ -109,7 +109,7 @@ class ToolRegistry:
 
         self.register(
             "run_python",
-            self.executor.run_python,
+            self._migrated_handlers["run_python"],
         )
 
         self.register(
