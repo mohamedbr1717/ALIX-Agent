@@ -23,6 +23,9 @@ from typing import Any, Callable, Dict
 def build_migrated_tool_handlers(
     policy: Any,
 ) -> Dict[str, Callable[..., dict]]:
+    from features.command_execution.composition import (
+        build_run_command_controller,
+    )
     from features.file_access.composition import (
         build_delete_file_controller,
         build_read_file_controller,
@@ -31,11 +34,13 @@ def build_migrated_tool_handlers(
 
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
+    run_command_controller = build_run_command_controller(policy)
 
     delete_file_controller = build_delete_file_controller(policy)
 
     return {
         "delete_file": lambda **kwargs: delete_file_controller.handle(kwargs),
         "read_file": lambda **kwargs: read_file_controller.handle(kwargs),
+        "run_command": lambda **kwargs: run_command_controller.handle(kwargs),
         "write_file": lambda **kwargs: write_file_controller.handle(kwargs),
     }

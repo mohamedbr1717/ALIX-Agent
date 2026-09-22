@@ -47,6 +47,7 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     # feature_bridge.py مسؤول عن composition/wiring فقط؛
     # بقية core/ لا تعرف تفاصيل vertical slices مباشرة.
     ("core/feature_bridge.py", "features.file_access.composition"),
+    ("core/feature_bridge.py", "features.command_execution.composition"),
 }
 
 

@@ -114,7 +114,7 @@ class ToolRegistry:
 
         self.register(
             "run_command",
-            self.executor.run_command,
+            self._migrated_handlers["run_command"],
         )
 
         self.register(

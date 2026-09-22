@@ -6,6 +6,9 @@ from unittest.mock import patch
 
 from core.agent import ALIXAgent
 from core.observability import ObservabilityLogger
+from features.command_execution.infrastructure.adapters.executor_command_runner import (
+    ExecutorCommandRunnerAdapter,
+)
 
 
 class TestObservabilityStatus(unittest.TestCase):
@@ -23,6 +26,7 @@ class TestObservabilityStatus(unittest.TestCase):
 
         # عزل الاختبار عن Policy الحقيقية.
         agent.policy.tool_allowed = lambda name: True
+        agent.policy.command_allowed = lambda command: True
         agent.policy.validate_tool_arguments = (
             lambda name, arguments: True
         )
@@ -50,7 +54,7 @@ class TestObservabilityStatus(unittest.TestCase):
             agent, log_file = self.make_agent(tmp)
 
             with patch.object(
-                agent.executor,
+                ExecutorCommandRunnerAdapter,
                 "run_command",
                 return_value={
                     "ok": True,
@@ -80,7 +84,7 @@ class TestObservabilityStatus(unittest.TestCase):
             agent, log_file = self.make_agent(tmp)
 
             with patch.object(
-                agent.executor,
+                ExecutorCommandRunnerAdapter,
                 "run_command",
                 return_value={
                     "ok": False,
@@ -113,7 +117,7 @@ class TestObservabilityStatus(unittest.TestCase):
             agent, log_file = self.make_agent(tmp)
 
             with patch.object(
-                agent.executor,
+                ExecutorCommandRunnerAdapter,
                 "run_command",
                 return_value={
                     "ok": False,
@@ -191,7 +195,7 @@ class TestObservabilityStatus(unittest.TestCase):
             agent, log_file = self.make_agent(tmp)
 
             with patch.object(
-                agent.executor,
+                ExecutorCommandRunnerAdapter,
                 "run_command",
                 return_value={
                     "ok": True,

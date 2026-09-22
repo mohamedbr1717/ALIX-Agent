@@ -911,11 +911,6 @@ class ALIXAgent:
                 arguments.get("path", ".")
             )
 
-        elif name == "run_command":
-            return self.executor.run_command(
-                arguments.get("command", "")
-            )
-
         elif name == "web_search":
             from tools.web import WebTools
             return WebTools().web_search(
