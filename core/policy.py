@@ -5,6 +5,8 @@ import shlex
 from pathlib import Path
 from typing import Optional
 
+from domain.rules import sensitive_paths
+
 
 class Policy:
 
@@ -487,35 +489,18 @@ class Policy:
             return False
 
     def is_sensitive_path(self, path: Path) -> bool:
-
-        try:
-            path = Path(path).resolve(strict=False)
-            workspace = self.workspace.resolve(strict=False)
-
-            # Outside workspace = forbidden.
-            if path != workspace and workspace not in path.parents:
-                return True
-
-            # Check every path component.
-            for part in path.parts:
-                if part in self.sensitive_names:
-                    return True
-
-                if part in self.sensitive_directories:
-                    return True
-
-            # Extension protection.
-            if path.suffix.lower() in self.sensitive_extensions:
-                return True
-
-            return False
-
-        except (
-            OSError,
-            RuntimeError,
-            ValueError,
-        ):
-            return True
+        # Delegated to the pure domain rule
+        # (domain/rules/sensitive_paths.py). Inputs are read live at call
+        # time, so rebinding workspace (or the sensitive sets) after
+        # __init__ keeps working -- exactly the pre-extraction semantics.
+        # Guarded by test_policy_workspace_rebinding_after_init.
+        return sensitive_paths.is_sensitive_path(
+            path,
+            self.workspace,
+            self.sensitive_names,
+            self.sensitive_directories,
+            self.sensitive_extensions,
+        )
 
     def validate_file_path(
         self,
