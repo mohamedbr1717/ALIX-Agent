@@ -5,7 +5,7 @@ import shlex
 from pathlib import Path
 from typing import Optional
 
-from domain.rules import sensitive_paths
+from domain.rules import confirmation, sensitive_paths
 
 
 class Policy:
@@ -715,17 +715,10 @@ class Policy:
         Return True when a tool requires explicit user confirmation.
         """
 
-        permission = self.tool_permission(tool_name)
-
-        if permission is None:
-            return False
-
-        return permission in {
-            "write",
-            "execute",
-            "destructive",
-        }
-
+        # Delegated to the pure domain rule (domain/rules/confirmation.py).
+        # Policy keeps the *configuration* (tool_permissions); the *decision*
+        # (which permission levels demand confirmation) lives in domain.
+        return confirmation.requires_confirmation(tool_name, self.tool_permissions)
 
     def validate_tool_arguments(
         self,
