@@ -11,12 +11,17 @@
 composition.py (جذر التركيب) مستثنى عمدًا -- هو المكان الوحيد
 المسموح له بمعرفة كل الطبقات معًا وربطها.
 
+domain/ (المستوى الأعلى) هو الطبقة الأعمق: لا يستورد من core/ أو
+features/ إطلاقًا (نقاء كامل -- stdlib ونفسه فقط)، بينما يُسمح
+لكليهما بالاستيراد منه بحرية -- هذا هو الغرض من وجوده مشتركًا.
+
 كما يتحقق أن core/*.py لا يستورد من features/ إلا عبر
 بوابة الربط الصريحة core/feature_bridge.py، حتى يبقى انتقال
 الـ features قرارًا معماريًا مركزيًا لا تسربًا غير مقصود.
 """
 
 import ast
+import sys
 import unittest
 from pathlib import Path
 
@@ -29,6 +34,10 @@ LAYER_RULES = {
 
 FEATURE_ROOT = Path("features")
 CORE_ROOT = Path("core")
+DOMAIN_ROOT = Path("domain")
+
+# أسماء وحدات المكتبة القياسية -- domain/ لا يستورد سواها (ونفسه).
+_STDLIB_MODULES = set(sys.stdlib_module_names)
 
 # استثناءات صريحة ومقصودة فقط -- كل سطر هنا يوثّق قرار ربط واعٍ
 # اتُّخذ فعليًا، لا ثغرة تسربت بصمت. أي استيراد آخر من core/ إلى
@@ -128,6 +137,47 @@ class TestArchitectureBoundaries(unittest.TestCase):
             violations,
             [],
             "core/ يستورد من features/ خارج بوابة الربط المسموح بها:\n"
+            + "\n".join(violations),
+        )
+
+    def test_domain_never_imports_from_outer_layers(self):
+        violations = []
+
+        if not DOMAIN_ROOT.is_dir():
+            self.skipTest("لا يوجد مجلد domain/ بعد.")
+
+        for py_file in sorted(DOMAIN_ROOT.rglob("*.py")):
+            if (
+                py_file.name == "__init__.py"
+                and py_file.stat().st_size == 0
+            ):
+                continue
+
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    mods = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level:
+                        # استيراد نسبي -- يبقى داخل domain/ حتمًا.
+                        continue
+                    mods = [node.module] if node.module else []
+                else:
+                    continue
+
+                for mod in mods:
+                    top = mod.split(".")[0]
+                    if top != "domain" and top not in _STDLIB_MODULES:
+                        violations.append(
+                            f"{py_file}: يستورد '{mod}' "
+                            "(خارج الطبقة الأعمق -- المسموح: stdlib ونفسه)"
+                        )
+
+        self.assertEqual(
+            violations,
+            [],
+            "domain/ يستورد من طبقات خارجية رغم كونه الطبقة الأعمق:\n"
             + "\n".join(violations),
         )
 
