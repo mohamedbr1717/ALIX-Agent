@@ -9,6 +9,9 @@ from core.observability import ObservabilityLogger
 from features.command_execution.infrastructure.adapters.executor_command_runner import (
     ExecutorCommandRunnerAdapter,
 )
+from features.system.infrastructure.adapters.executor_system_runner import (
+    ExecutorSystemRunnerAdapter,
+)
 
 
 class TestObservabilityStatus(unittest.TestCase):
@@ -153,8 +156,8 @@ class TestObservabilityStatus(unittest.TestCase):
             agent, log_file = self.make_agent(tmp)
 
             with patch.object(
-                agent.executor,
-                "system_info",
+                ExecutorSystemRunnerAdapter,
+                "run_system_info",
                 side_effect=RuntimeError(
                     "TEST_EXCEPTION"
                 ),

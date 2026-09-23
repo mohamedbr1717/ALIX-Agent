@@ -900,10 +900,6 @@ class ALIXAgent:
                 arguments.get("all", False),
             )
 
-        elif name == "create_directory":
-            return self.executor.create_directory(
-                arguments.get("path", "")
-            )
 
         elif name == "search_files":
             return self.executor.search_files(
@@ -926,13 +922,7 @@ class ALIXAgent:
             )
 
 
-        elif name == "system_info":
-            return self.executor.system_info()
 
-        elif name == "git_status":
-            return self.executor.git_read_only(
-                "status"
-            )
 
         elif name == "remember_fact":
 

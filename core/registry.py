@@ -98,14 +98,9 @@ class ToolRegistry:
 
         self.register(
             "create_directory",
-            self.executor.create_directory,
+            self._migrated_handlers["create_directory"],
         )
 
-
-        self.register(
-            "delete_file",
-            self.executor.delete_file,
-        )
 
         self.register(
             "run_python",
@@ -119,12 +114,12 @@ class ToolRegistry:
 
         self.register(
             "system_info",
-            self.executor.system_info,
+            self._migrated_handlers["system_info"],
         )
 
         self.register(
             "git_status",
-            self.executor.git_read_only,
+            self._migrated_handlers["git_status"],
         )
 
         # Web tools: read-only, no API key. SSRF guard lives in tools/web.py.

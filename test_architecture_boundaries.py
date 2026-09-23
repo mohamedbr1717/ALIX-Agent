@@ -48,6 +48,7 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     # بقية core/ لا تعرف تفاصيل vertical slices مباشرة.
     ("core/feature_bridge.py", "features.file_access.composition"),
     ("core/feature_bridge.py", "features.command_execution.composition"),
+    ("core/feature_bridge.py", "features.system.composition"),
 }
 
 

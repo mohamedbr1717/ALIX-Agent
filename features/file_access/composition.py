@@ -1,4 +1,8 @@
 from __future__ import annotations
+from features.file_access.application.use_cases.create_directory import CreateDirectoryUseCase
+from features.file_access.infrastructure.adapters.executor_directory_runner import ExecutorDirectoryRunnerAdapter
+from features.file_access.infrastructure.adapters.policy_directory_authorization import PolicyDirectoryAuthorizationAdapter
+from features.file_access.interfaces.controllers.create_directory_controller import CreateDirectoryController
 
 from typing import Any
 
@@ -56,3 +60,14 @@ def build_write_file_controller(
         authorization=authorization,
     )
     return WriteFileController(use_case)
+
+
+def build_create_directory_controller(policy):
+    """Build the create_directory controller with its default adapters."""
+    authorization = PolicyDirectoryAuthorizationAdapter(policy)
+    runner = ExecutorDirectoryRunnerAdapter(policy)
+    use_case = CreateDirectoryUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return CreateDirectoryController(use_case)
