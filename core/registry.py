@@ -130,6 +130,11 @@ class ToolRegistry:
             web_tools.web_fetch,
         )
 
+        self.register(
+            "search_files",
+            self._migrated_handlers["search_files"],
+        )
+
     # ========================================================
     # QUERY
     # ========================================================

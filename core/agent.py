@@ -886,12 +886,6 @@ class ALIXAgent:
         if name in migrated_handlers:
             return migrated_handlers[name](**arguments)
 
-        elif name == "search_files":
-            return self.executor.search_files(
-                arguments.get("pattern", ""),
-                arguments.get("path", ".")
-            )
-
         elif name == "web_search":
             from tools.web import WebTools
             return WebTools().web_search(

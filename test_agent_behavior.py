@@ -410,8 +410,10 @@ class TestExecuteTool(unittest.TestCase):
 
     def test_exception_in_body_is_caught(self):
         agent = make_agent()
-        with mock.patch.object(
-            agent.executor, "search_files", side_effect=RuntimeError("boom")
+        with mock.patch(
+            "features.file_access.infrastructure.adapters.executor_search_runner."
+            "ExecutorSearchRunnerAdapter.run_search",
+            side_effect=RuntimeError("boom"),
         ):
             result = agent.execute_tool(
                 "search_files", {"pattern": "x", "path": "."}

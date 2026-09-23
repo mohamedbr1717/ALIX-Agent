@@ -1,8 +1,12 @@
 from __future__ import annotations
 from features.file_access.application.use_cases.list_files import ListFilesUseCase
+from features.file_access.application.use_cases.search_files import SearchFilesUseCase
 from features.file_access.infrastructure.adapters.filesystem_list_runner import FileSystemToolsListRunnerAdapter
 from features.file_access.infrastructure.adapters.policy_file_listing_authorization import PolicyFileListingAuthorizationAdapter
+from features.file_access.infrastructure.adapters.executor_search_runner import ExecutorSearchRunnerAdapter
+from features.file_access.infrastructure.adapters.policy_search_authorization import PolicySearchAuthorizationAdapter
 from features.file_access.interfaces.controllers.list_files_controller import ListFilesController
+from features.file_access.interfaces.controllers.search_files_controller import SearchFilesController
 from features.file_access.application.use_cases.create_directory import CreateDirectoryUseCase
 from features.file_access.infrastructure.adapters.executor_directory_runner import ExecutorDirectoryRunnerAdapter
 from features.file_access.infrastructure.adapters.policy_directory_authorization import PolicyDirectoryAuthorizationAdapter
@@ -86,3 +90,14 @@ def build_list_files_controller(policy):
         runner=runner,
     )
     return ListFilesController(use_case)
+
+
+def build_search_files_controller(policy):
+    """Build the search_files controller with its default adapters."""
+    authorization = PolicySearchAuthorizationAdapter(policy)
+    runner = ExecutorSearchRunnerAdapter(policy)
+    use_case = SearchFilesUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return SearchFilesController(use_case)
