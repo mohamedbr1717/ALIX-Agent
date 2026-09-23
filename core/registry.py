@@ -132,6 +132,17 @@ class ToolRegistry:
             self._migrated_handlers["search_files"],
         )
 
+        self.register(
+            "verify_file",
+            self._migrated_handlers["verify_file"],
+        )
+
+        # remember_fact persists to the agent's memory store.
+        self.register(
+            "remember_fact",
+            self._migrated_handlers["remember_fact"],
+        )
+
     # ========================================================
     # QUERY
     # ========================================================

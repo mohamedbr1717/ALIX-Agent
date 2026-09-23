@@ -32,6 +32,18 @@ from features.file_access.interfaces.controllers.read_file_controller import (
 from features.file_access.interfaces.controllers.write_file_controller import (
     WriteFileController,
 )
+from features.file_access.application.use_cases.verify_file import (
+    VerifyFileUseCase,
+)
+from features.file_access.infrastructure.adapters.executor_file_verification_runner import (
+    ExecutorFileVerificationRunnerAdapter,
+)
+from features.file_access.infrastructure.adapters.policy_file_verification_authorization import (
+    PolicyFileVerificationAuthorizationAdapter,
+)
+from features.file_access.interfaces.controllers.verify_file_controller import (
+    VerifyFileController,
+)
 
 
 def build_delete_file_controller(
@@ -101,3 +113,13 @@ def build_search_files_controller(policy):
         runner=runner,
     )
     return SearchFilesController(use_case)
+
+def build_verify_file_controller(policy) -> VerifyFileController:
+    """Build the verify_file controller with its default adapters."""
+    authorization = PolicyFileVerificationAuthorizationAdapter(policy)
+    runner = ExecutorFileVerificationRunnerAdapter(policy)
+    use_case = VerifyFileUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return VerifyFileController(use_case)

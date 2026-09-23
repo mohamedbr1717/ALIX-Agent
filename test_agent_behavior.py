@@ -323,7 +323,7 @@ class TestExecuteToolBody(unittest.TestCase):
         agent = make_agent()
         result = agent._execute_tool_body("remember_fact", {"fact": "   "})
         self.assertFalse(result["ok"])
-        self.assertIn("الذاكرة فارغة", result["error"])
+        self.assertIn("الذاكرة فارغة", result["message"])
 
     def test_remember_fact_routes_fact_and_preference(self):
         agent = make_agent()

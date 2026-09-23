@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict
 
 def build_migrated_tool_handlers(
     policy: Any,
+    memory: Any | None = None,
 ) -> Dict[str, Callable[..., dict]]:
     from features.command_execution.composition import (
         build_run_command_controller,
@@ -37,11 +38,15 @@ def build_migrated_tool_handlers(
         build_list_files_controller,
         build_read_file_controller,
         build_search_files_controller,
+        build_verify_file_controller,
         build_write_file_controller,
     )
     from features.web.composition import (
         build_web_fetch_controller,
         build_web_search_controller,
+    )
+    from features.memory.composition import (
+        build_remember_fact_controller,
     )
 
     read_file_controller = build_read_file_controller(policy)
@@ -57,6 +62,8 @@ def build_migrated_tool_handlers(
     search_files_controller = build_search_files_controller(policy)
     web_search_controller = build_web_search_controller()
     web_fetch_controller = build_web_fetch_controller()
+    verify_file_controller = build_verify_file_controller(policy)
+    remember_fact_controller = build_remember_fact_controller(memory)
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -66,6 +73,8 @@ def build_migrated_tool_handlers(
         "search_files": lambda **kwargs: search_files_controller.handle(kwargs),
         "web_fetch": lambda **kwargs: web_fetch_controller.handle(kwargs),
         "web_search": lambda **kwargs: web_search_controller.handle(kwargs),
+        "verify_file": lambda **kwargs: verify_file_controller.handle(kwargs),
+        "remember_fact": lambda **kwargs: remember_fact_controller.handle(kwargs),
         "run_command": lambda **kwargs: run_command_controller.handle(kwargs),
         "run_python": lambda **kwargs: run_python_controller.handle(kwargs),
         "git_status": lambda **kwargs: git_status_controller.handle(kwargs),

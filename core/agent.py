@@ -335,7 +335,8 @@ class ALIXAgent:
         # الأدوات المُهاجَرة لشرائح features/ الجديدة -- تُبنى مرة
         # واحدة هنا، لا في كل استدعاء داخل _execute_tool_body.
         self._migrated_handlers = build_migrated_tool_handlers(
-            self.policy
+            self.policy,
+            self.memory,
         )
 
         self.llm = HybridLLM(use_remote=True)
@@ -869,7 +870,7 @@ class ALIXAgent:
         """
         if not hasattr(self, "_migrated_handlers"):
             self._migrated_handlers = build_migrated_tool_handlers(
-                self.policy
+                self.policy, getattr(self, "memory", None)
             )
 
         return self._migrated_handlers
@@ -890,53 +891,6 @@ class ALIXAgent:
 
 
 
-        elif name == "remember_fact":
-
-            fact = str(
-                arguments.get(
-                    "fact",
-                    ""
-                )
-            ).strip()
-
-            if not fact:
-                return {
-                    "ok": False,
-                    "error": "الذاكرة فارغة."
-                }
-
-            is_preference = bool(
-                arguments.get(
-                    "is_preference",
-                    False
-                )
-            )
-
-            if is_preference:
-                saved = self.memory.add_preference(
-                    fact
-                )
-            else:
-                saved = self.memory.add_fact(
-                    fact
-                )
-
-            return {
-                "ok": bool(saved),
-                "evidence": {
-                    "saved": bool(saved),
-                    "type": (
-                        "preference"
-                        if is_preference
-                        else "fact"
-                    )
-                }
-            }
-
-        elif name == "verify_file":
-            return self.executor.verify_file(
-                arguments.get("path", "")
-            )
 
         return {
             "ok": False,
