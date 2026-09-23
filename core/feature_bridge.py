@@ -39,6 +39,10 @@ def build_migrated_tool_handlers(
         build_search_files_controller,
         build_write_file_controller,
     )
+    from features.web.composition import (
+        build_web_fetch_controller,
+        build_web_search_controller,
+    )
 
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
@@ -51,6 +55,8 @@ def build_migrated_tool_handlers(
     delete_file_controller = build_delete_file_controller(policy)
     list_files_controller = build_list_files_controller(policy)
     search_files_controller = build_search_files_controller(policy)
+    web_search_controller = build_web_search_controller()
+    web_fetch_controller = build_web_fetch_controller()
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -58,6 +64,8 @@ def build_migrated_tool_handlers(
         "list_files": lambda **kwargs: list_files_controller.handle(kwargs),
         "read_file": lambda **kwargs: read_file_controller.handle(kwargs),
         "search_files": lambda **kwargs: search_files_controller.handle(kwargs),
+        "web_fetch": lambda **kwargs: web_fetch_controller.handle(kwargs),
+        "web_search": lambda **kwargs: web_search_controller.handle(kwargs),
         "run_command": lambda **kwargs: run_command_controller.handle(kwargs),
         "run_python": lambda **kwargs: run_python_controller.handle(kwargs),
         "git_status": lambda **kwargs: git_status_controller.handle(kwargs),

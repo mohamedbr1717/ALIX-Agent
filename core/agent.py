@@ -886,19 +886,6 @@ class ALIXAgent:
         if name in migrated_handlers:
             return migrated_handlers[name](**arguments)
 
-        elif name == "web_search":
-            from tools.web import WebTools
-            return WebTools().web_search(
-                arguments.get("query", ""),
-                arguments.get("max_results", 5),
-            )
-
-        elif name == "web_fetch":
-            from tools.web import WebTools
-            return WebTools().web_fetch(
-                arguments.get("url", ""),
-                arguments.get("max_chars", 8000),
-            )
 
 
 

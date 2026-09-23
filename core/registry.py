@@ -116,18 +116,15 @@ class ToolRegistry:
         )
 
         # Web tools: read-only, no API key. SSRF guard lives in tools/web.py.
-        from tools.web import WebTools
-
-        web_tools = WebTools()
 
         self.register(
             "web_search",
-            web_tools.web_search,
+            self._migrated_handlers["web_search"],
         )
 
         self.register(
             "web_fetch",
-            web_tools.web_fetch,
+            self._migrated_handlers["web_fetch"],
         )
 
         self.register(
