@@ -67,16 +67,9 @@ class ToolRegistry:
     # ========================================================
 
     def _register_tools(self):
-        # SafeExecutor is the canonical execution authority.
-        # list_files remains on FileSystemTools because SafeExecutor
-        # does not currently expose an equivalent operation.
-        from tools.filesystem import FileSystemTools
-
-        filesystem = FileSystemTools(self.policy)
-
         self.register(
             "list_files",
-            filesystem.list_files,
+            self._migrated_handlers["list_files"],
         )
 
         # Migrated vertical slices are registered through the

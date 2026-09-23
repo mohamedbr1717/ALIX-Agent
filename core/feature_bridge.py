@@ -34,6 +34,7 @@ def build_migrated_tool_handlers(
     from features.file_access.composition import (
         build_create_directory_controller,
         build_delete_file_controller,
+        build_list_files_controller,
         build_read_file_controller,
         build_write_file_controller,
     )
@@ -47,10 +48,12 @@ def build_migrated_tool_handlers(
     git_status_controller = build_git_status_controller(policy)
 
     delete_file_controller = build_delete_file_controller(policy)
+    list_files_controller = build_list_files_controller(policy)
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
         "delete_file": lambda **kwargs: delete_file_controller.handle(kwargs),
+        "list_files": lambda **kwargs: list_files_controller.handle(kwargs),
         "read_file": lambda **kwargs: read_file_controller.handle(kwargs),
         "run_command": lambda **kwargs: run_command_controller.handle(kwargs),
         "run_python": lambda **kwargs: run_python_controller.handle(kwargs),

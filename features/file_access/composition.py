@@ -1,4 +1,8 @@
 from __future__ import annotations
+from features.file_access.application.use_cases.list_files import ListFilesUseCase
+from features.file_access.infrastructure.adapters.filesystem_list_runner import FileSystemToolsListRunnerAdapter
+from features.file_access.infrastructure.adapters.policy_file_listing_authorization import PolicyFileListingAuthorizationAdapter
+from features.file_access.interfaces.controllers.list_files_controller import ListFilesController
 from features.file_access.application.use_cases.create_directory import CreateDirectoryUseCase
 from features.file_access.infrastructure.adapters.executor_directory_runner import ExecutorDirectoryRunnerAdapter
 from features.file_access.infrastructure.adapters.policy_directory_authorization import PolicyDirectoryAuthorizationAdapter
@@ -71,3 +75,14 @@ def build_create_directory_controller(policy):
         runner=runner,
     )
     return CreateDirectoryController(use_case)
+
+
+def build_list_files_controller(policy):
+    """Build the list_files controller with its default adapters."""
+    authorization = PolicyFileListingAuthorizationAdapter(policy)
+    runner = FileSystemToolsListRunnerAdapter(policy)
+    use_case = ListFilesUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return ListFilesController(use_case)

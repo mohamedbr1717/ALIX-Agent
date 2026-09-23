@@ -886,21 +886,6 @@ class ALIXAgent:
         if name in migrated_handlers:
             return migrated_handlers[name](**arguments)
 
-        if name == "list_files":
-            # UNIFICATION (2026-09-21): single canonical implementation.
-            # The old inline body diverged behaviorally from
-            # tools.filesystem.FileSystemTools.list_files (dot-files
-            # always shown, name-only sort, ad-hoc result shape,
-            # 200-item cap, no sizes). All list_files traffic now goes
-            # through the canonical implementation (dot-files hidden
-            # unless all=True, ExecutionResult contract).
-            from tools.filesystem import FileSystemTools
-            return FileSystemTools(self.policy).list_files(
-                arguments.get("path", "."),
-                arguments.get("all", False),
-            )
-
-
         elif name == "search_files":
             return self.executor.search_files(
                 arguments.get("pattern", ""),
