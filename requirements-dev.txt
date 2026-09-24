@@ -1,0 +1,4 @@
+# Development / test dependencies.
+-r requirements.txt
+pytest==9.1.1  # imported as 'pytest'
+coverage==7.16.0  # imported as 'coverage'
