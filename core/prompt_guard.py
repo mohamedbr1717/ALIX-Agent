@@ -24,6 +24,8 @@ explicit hierarchy do.
 """
 
 from __future__ import annotations
+import base64
+import unicodedata
 
 import re
 from dataclasses import dataclass
@@ -147,6 +149,46 @@ _PATTERNS: list[tuple[str, str, str]] = [
         r"لنتظاهر|تظاهر\s+أنك|تخيل\s+أنك",
         "low",
     ),
+    (
+        "en.fake_developer",
+        r"(new|updated)\s+instructions?\s+from\s+(the\s+)?(developer|system|admin|administrator)\b",
+        "high",
+    ),
+    (
+        "en.fake_user_voice",
+        r"\bthe\s+user\s+(actually|really)\s+wants?\s+you\s+to\b",
+        "medium",
+    ),
+    (
+        "ar.ignore_previous",
+        r"تجاهل\s+(كل\s+)?ما\s+سبق",
+        "high",
+    ),
+    (
+        "ar.fake_developer",
+        r"(تعليمات|أوامر)\s+جديدة\s+من\s+(المطور|النظام|المسؤول)",
+        "high",
+    ),
+    (
+        "en.system_note",
+        r"\b(system|admin|administrator)\s+note\s*:",
+        "medium",
+    ),
+    (
+        "en.hidden_block",
+        r"\[\s*hidden\s*:",
+        "medium",
+    ),
+    (
+        "ar.ignore_policy",
+        r"تجاهل\s+سياسة\s+الأمان",
+        "high",
+    ),
+    (
+        "en.exfiltrate",
+        r"\bexfiltrat(e|ion|ing)\b",
+        "high",
+    ),
 ]
 
 _COMPILED: list[tuple[str, re.Pattern, str]] = [
@@ -180,6 +222,7 @@ TAG_NEUTRALIZED = "[تم تحييد وسم استدعاء أداة: محتوى �
 
 
 def neutralize_tool_call_tags(text: str) -> tuple[str, list[Finding]]:
+    text = _normalize(text)
     """
     Replace every <tool_call>...</tool_call> block in *text* with
     TAG_NEUTRALIZED. Returns (cleaned_text, findings); each neutralized
@@ -213,10 +256,46 @@ def neutralize_tool_call_tags(text: str) -> tuple[str, list[Finding]]:
 # Layer 1 — detection
 # ---------------------------------------------------------------------------
 
-def scan(text: str, max_match: int = 120) -> list[Finding]:
+_ZERO_WIDTH_RE = re.compile("[\u200b\u200c\u200d\u2060\ufeff\u00ad\u180e]")
+
+
+def _normalize(text: str) -> str:
+    """NFKC-normalize and strip invisible characters. Idempotent."""
+    return _ZERO_WIDTH_RE.sub("", unicodedata.normalize("NFKC", text))
+
+
+_B64_RE = re.compile(r"\b[A-Za-z0-9+/]{24,}={0,2}")
+
+
+def _scan_base64(text: str, max_match: int) -> list["Finding"]:
+    """Decode base64 blobs and scan the decoded content (depth 1)."""
+    out: list["Finding"] = []
+    for m in _B64_RE.finditer(text):
+        blob = m.group(0)
+        try:
+            decoded = base64.b64decode(blob, validate=True).decode("utf-8")
+        except Exception:
+            continue
+        if scan(decoded, max_match, _depth=1):
+            out.append(
+                Finding(
+                    pattern="en.base64_obfuscated",
+                    severity="high",
+                    match=blob[:max_match],
+                    start=m.start(),
+                    end=m.end(),
+                )
+            )
+    return out
+
+
+def scan(
+    text: str, max_match: int = 120, _depth: int = 0
+) -> list[Finding]:
     """Return all injection-pattern findings in *text*, ordered by position."""
     if not text:
         return []
+    text = _normalize(text)
     findings: list[Finding] = []
     seen_spans: set[tuple[int, int]] = set()
     for name, rx, severity in _COMPILED:
@@ -237,6 +316,8 @@ def scan(text: str, max_match: int = 120) -> list[Finding]:
                     end=m.end(),
                 )
             )
+    if _depth == 0:
+        findings.extend(_scan_base64(text, max_match))
     findings.sort(key=lambda f: f.start)
     return findings
 
@@ -246,6 +327,7 @@ def scan(text: str, max_match: int = 120) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 def sanitize(text: str) -> tuple[str, list[Finding]]:
+    text = _normalize(text)
     """
     Return (cleaned_text, findings). High-severity spans are replaced with
     REDACTED; everything else is preserved so legitimate data is not lost.
@@ -268,6 +350,7 @@ def sanitize(text: str) -> tuple[str, list[Finding]]:
 # ---------------------------------------------------------------------------
 
 def guard_tool_output(tool_name: str, payload: str) -> tuple[str, list[Finding]]:
+    payload = _normalize(payload)
     """
     Wrap a tool result as explicitly untrusted data. Tool-call tags are
     neutralized first (their shape alone is executable via the agent's
