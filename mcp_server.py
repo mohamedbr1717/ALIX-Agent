@@ -42,6 +42,7 @@ allowlist, capability gates and workspace confinement apply.
 
 import ast
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -244,6 +245,13 @@ class ALIXMCPServer:
         self.policy = Policy()
         self.registry = ToolRegistry(self.policy)
         self.memory = Memory()
+        # Threat model: MCP clients are NOT trusted. A malicious client
+        # can trivially assert `confirmed: true`, so destructive tools
+        # (those requiring confirmation) are hidden and denied unless
+        # the operator explicitly opts in. Fail-closed by default.
+        self.allow_destructive = os.environ.get(
+            "ALIX_MCP_ALLOW_DESTRUCTIVE", "").lower() in (
+                "1", "true", "yes")
         # Seed a context fact so memory search has something meaningful.
         try:
             self.memory.add_fact("ALIX MCP server uses core policy AST screening")
@@ -303,6 +311,9 @@ class ALIXMCPServer:
         if method == "tools/list":
             tools = list(LEGACY_TOOLS)
             for name in self.registry.names():
+                if (not self.allow_destructive
+                        and self.policy.requires_confirmation(name)):
+                    continue
                 schema = REGISTRY_TOOL_SCHEMAS.get(name)
                 if schema is None:
                     continue
@@ -348,6 +359,22 @@ class ALIXMCPServer:
                 # responsibility). MCP clients must explicitly confirm
                 # destructive tools on every call.
                 if self.policy.requires_confirmation(tool_name):
+                    if not self.allow_destructive:
+                        return self._ok(
+                            msg_id,
+                            self._text_result(
+                                {
+                                    "ok": False,
+                                    "action": tool_name,
+                                    "message": (
+                                        f"الأداة '{tool_name}' مدمرة "
+                                        "ومحظورة عبر MCP افتراضيًا. "
+                                        "فعّل ALIX_MCP_ALLOW_DESTRUCTIVE=1 "
+                                        "للسماح بها."
+                                    ),
+                                }
+                            ),
+                        )
                     if args.get("confirmed") is not True:
                         return self._ok(
                             msg_id,

@@ -10,6 +10,7 @@ Run from the repo root: python3 -m pytest test_mcp_confirmation.py -q
 """
 from __future__ import annotations
 
+import os
 import unittest
 from unittest import mock
 
@@ -18,9 +19,14 @@ from mcp_server import ALIXMCPServer
 
 
 def make_server():
-    with mock.patch.object(mcp_server, "Memory",
-                           return_value=mock.Mock()):
-        return ALIXMCPServer()
+    # Opt in to destructive tools: this file tests the per-call
+    # `confirmed` layer; the default-deny layer is covered by
+    # test_mcp_threat_model.py.
+    with mock.patch.dict(os.environ,
+                         {"ALIX_MCP_ALLOW_DESTRUCTIVE": "1"}):
+        with mock.patch.object(mcp_server, "Memory",
+                               return_value=mock.Mock()):
+            return ALIXMCPServer()
 
 
 def call(server, name, arguments, msg_id=1):

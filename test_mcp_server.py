@@ -4,6 +4,7 @@ process_line. No stdio, no network, no live memory writes.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,7 +99,11 @@ class TestHandleRequest(unittest.TestCase):
                          "alix-mcp-server")
 
     def test_tools_list(self):
-        s = self.make_server()
+        # Destructive tools are hidden by default; opt in to verify
+        # migrated registry tools are advertised when allowed.
+        with mock.patch.dict(os.environ,
+                             {"ALIX_MCP_ALLOW_DESTRUCTIVE": "1"}):
+            s = self.make_server()
         res = s.handle_request({"jsonrpc": "2.0", "id": 2,
                                 "method": "tools/list", "params": {}})
         names = [t["name"] for t in res["result"]["tools"]]
