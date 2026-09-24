@@ -343,6 +343,29 @@ class ALIXMCPServer:
                 return self._ok(msg_id, self._text_result(payload))
 
             if self.registry.has(tool_name):
+                # Confirmation gate: the registry is Policy-gated but
+                # NOT confirmation-gated (confirmation is the Agent's
+                # responsibility). MCP clients must explicitly confirm
+                # destructive tools on every call.
+                if self.policy.requires_confirmation(tool_name):
+                    if args.get("confirmed") is not True:
+                        return self._ok(
+                            msg_id,
+                            self._text_result(
+                                {
+                                    "ok": False,
+                                    "action": tool_name,
+                                    "message": (
+                                        f"الأداة '{tool_name}' تتطلب "
+                                        "تأكيدًا صريحًا. أعد الإرسال مع "
+                                        "confirmed=true."
+                                    ),
+                                }
+                            ),
+                        )
+                    args = {
+                        k: v for k, v in args.items() if k != "confirmed"
+                    }
                 # Policy-gated dispatch; returns the canonical
                 # ExecutionResult dict (ok/action/message/...).
                 result = self.registry.execute(tool_name, args)
