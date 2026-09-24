@@ -1,5 +1,5 @@
 # ALIX-Agent runtime dependencies — pinned to the tested versions.
 # Regenerate after any upgrade + full test suite run.
-openai==3.6.0  # imported as 'openai'
+openai==3.19.2  # imported as 'openai'
 requests==2.34.2  # imported as 'requests'
 python-dotenv==1.2.2  # imported as 'dotenv'
