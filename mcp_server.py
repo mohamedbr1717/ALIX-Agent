@@ -64,6 +64,7 @@ if str(BASE_DIR) not in sys.path:
 from core.memory import Memory
 from core.policy import Policy
 from core.registry import ToolRegistry
+from core.plan_signer import verify_token
 
 # Optional: full agent (needs the ``openai`` package + API key).
 # The MCP tools below do NOT need it, so the server stays usable
@@ -375,7 +376,34 @@ class ALIXMCPServer:
                                 }
                             ),
                         )
-                    if args.get("confirmed") is not True:
+                    # HMAC plan-signing: the MCP client is untrusted,
+                    # so a self-asserted `confirmed` boolean can never
+                    # serve as confirmation. The operator mints a
+                    # capability token offline and the client presents
+                    # it as `confirmation_token`:
+                    #   python3 -m core.plan_signer --tools <names> --ttl <s>
+                    key = os.environ.get("ALIX_MCP_HMAC_KEY", "")
+                    if not key:
+                        return self._ok(
+                            msg_id,
+                            self._text_result(
+                                {
+                                    "ok": False,
+                                    "action": tool_name,
+                                    "message": (
+                                        f"الأداة '{tool_name}' تتطلب رمز "
+                                        "تأكيد موقّع (HMAC)، لكن "
+                                        "ALIX_MCP_HMAC_KEY غير مضبوط في "
+                                        "بيئة الخادم."
+                                    ),
+                                }
+                            ),
+                        )
+                    token = args.get("confirmation_token")
+                    if (
+                        not isinstance(token, str)
+                        or not verify_token(token, tool_name, key)
+                    ):
                         return self._ok(
                             msg_id,
                             self._text_result(
@@ -384,14 +412,16 @@ class ALIXMCPServer:
                                     "action": tool_name,
                                     "message": (
                                         f"الأداة '{tool_name}' تتطلب "
-                                        "تأكيدًا صريحًا. أعد الإرسال مع "
-                                        "confirmed=true."
+                                        "confirmation_token صالحًا. ولّده "
+                                        "عبر: python3 -m core.plan_signer "
+                                        "--tools <names> --ttl <seconds>"
                                     ),
                                 }
                             ),
                         )
                     args = {
-                        k: v for k, v in args.items() if k != "confirmed"
+                        k: v for k, v in args.items()
+                        if k not in ("confirmation_token", "confirmed")
                     }
                 # Policy-gated dispatch; returns the canonical
                 # ExecutionResult dict (ok/action/message/...).

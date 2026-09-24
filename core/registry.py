@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict
 
 from core.executor import ExecutionResult, SafeExecutor
 from core.feature_bridge import build_migrated_tool_handlers
+from core.canary import find_canary
 
 
 class ToolRegistry:
@@ -222,6 +223,24 @@ class ToolRegistry:
                 name,
                 started,
                 "arguments يجب أن تكون JSON object.",
+            )
+
+        # ---------------------------------------------------------
+        # 2b. Canary tripwire (fail-closed)
+        # ---------------------------------------------------------
+        # The honeytoken published in the system prompt is fake. If it
+        # ever appears inside tool arguments, the model is acting on
+        # injected content (or leaking the prompt) -> deny loudly.
+        if find_canary(arguments) is not None:
+            return self._deny(
+                name,
+                started,
+                "CANARY TRIPWIRE: \u0631\u064f\u0635\u062f \u0631\u0645\u0632"
+                " \u0643\u0634\u0641 \u0627\u0644\u062a\u0633\u0644\u0644"
+                " \u062f\u0627\u062e\u0644 \u0648\u0633\u0627\u0626\u0637"
+                " \u0627\u0644\u0623\u062f\u0627\u0629 \u2014 \u0645\u0631\u0641\u0648\u0636."
+                " \u0647\u0630\u0627 \u064a\u0634\u064a\u0631"
+                " \u0625\u0644\u0649 \u062d\u0642\u0646 \u062a\u0639\u0644\u064a\u0645\u0627\u062a.",
             )
 
         # ---------------------------------------------------------
