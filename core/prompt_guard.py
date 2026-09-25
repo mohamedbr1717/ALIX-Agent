@@ -7,7 +7,10 @@ instructions hidden inside them even when wrapped in delimiters.
 
 Defense in depth (4 layers):
   1. scan()      — detect known injection patterns (EN + AR), phrase-level
-                   to avoid false positives on ordinary words like "system".
+                   to avoid false positives on ordinary words like "system";
+                   plus length-preserving leet-fold passes (D2: l33t
+                   obfuscation) that are detection-only and never rewrite
+                   output, so version strings / model names / IPs stay intact.
   2. sanitize()  — redact high-severity spans, keep the safe remainder.
   2b. neutralize_tool_call_tags() — strip <tool_call>...</tool_call> blocks
                    from untrusted data. The agent's extract_tool_calls()
@@ -299,22 +302,63 @@ def _scan_base64(text: str, max_match: int) -> list["Finding"]:
     return out
 
 
-def scan(
-    text: str, max_match: int = 120, _depth: int = 0
-) -> list[Finding]:
-    """Return all injection-pattern findings in *text*, ordered by position."""
-    if not text:
-        return []
-    text = _normalize(text)
-    findings: list[Finding] = []
-    seen_spans: set[tuple[int, int]] = set()
+# Leet-speak folding (D2 mitigation).
+#
+# Attackers obfuscate injection phrases as l33t ("1gn0r3 pr3v10us
+# 1nstruct10ns"): still readable to the model, invisible to phrase
+# matching. Defense: scan() additionally scans length-preserving
+# leet-folded *copies* of the text. The fold is 1:1 per character, so
+# every finding span stays valid against the original text — sanitize()
+# redacts the original leet span, and benign output is NEVER rewritten
+# (this is what keeps version strings, model names and IPs safe:
+# folding is detection-only, it never mutates data).
+#
+# Two fold variants cover the ambiguous "1": "pr3v10us" needs 1->i while
+# "a11"-style (all) needs 1->l. A folded pass is skipped entirely when it
+# would change nothing, so plain text costs exactly one extra
+# str.translate per table. Known residual: deliberately MIXED 1-usage
+# (some 1s as i, others as l, in different words of one phrase) evades
+# both consistent variants; Franco-Arabic (Arabizi) leet is not folded.
+# ---------------------------------------------------------------------------
+
+_LEET_BASE = {
+    "4": "a", "@": "a",
+    "8": "b",
+    "3": "e",
+    "6": "g", "9": "g",
+    "!": "i",
+    "0": "o",
+    "5": "s", "$": "s",
+    "7": "t", "+": "t",
+    "2": "z",
+}
+_LEET_TABLES = (
+    str.maketrans({**_LEET_BASE, "1": "i"}),
+    str.maketrans({**_LEET_BASE, "1": "l"}),
+)
+
+
+def _collect_findings(
+    view: str,
+    original: str,
+    max_match: int,
+    findings: list["Finding"],
+    seen_spans: set[tuple[int, int]],
+) -> None:
+    """Match _COMPILED against *view*, reporting spans on *original*.
+
+    *view* must be exactly as long as *original* (the leet fold is 1:1),
+    so spans transfer directly and the reported snippet shows the real
+    (possibly obfuscated) text, never the folded copy.
+    """
+    assert len(view) == len(original)
     for name, rx, severity in _COMPILED:
-        for m in rx.finditer(text):
+        for m in rx.finditer(view):
             span = (m.start(), m.end())
             if span in seen_spans:
                 continue
             seen_spans.add(span)
-            snippet = m.group(0)
+            snippet = original[m.start():m.end()]
             if len(snippet) > max_match:
                 snippet = snippet[:max_match] + "…"
             findings.append(
@@ -326,6 +370,27 @@ def scan(
                     end=m.end(),
                 )
             )
+
+
+def scan(
+    text: str, max_match: int = 120, _depth: int = 0
+) -> list[Finding]:
+    """Return all injection-pattern findings in *text*, ordered by position.
+
+    Besides the plain pass, length-preserving leet-folded copies are
+    scanned (D2: l33t obfuscation). Findings always reference the
+    original text — nothing is ever rewritten by folding.
+    """
+    if not text:
+        return []
+    text = _normalize(text)
+    findings: list[Finding] = []
+    seen_spans: set[tuple[int, int]] = set()
+    _collect_findings(text, text, max_match, findings, seen_spans)
+    for table in _LEET_TABLES:
+        folded = text.translate(table)
+        if folded != text:
+            _collect_findings(folded, text, max_match, findings, seen_spans)
     if _depth == 0:
         findings.extend(_scan_base64(text, max_match))
     findings.sort(key=lambda f: f.start)
