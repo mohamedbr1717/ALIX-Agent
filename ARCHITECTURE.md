@@ -131,3 +131,27 @@ Evidence-based completion: implementation + meaningful behavioral /
 security tests + real runtime verification = done. No fake tests, no
 tests written only to raise coverage. `memory/memory.json` is live
 runtime data — tests mock `Memory`, never touch the file.
+
+## Dual-LLM router (`core/dual_llm.py`) <!-- DUAL_LLM_DOC -->
+
+`DualLLM` replaces `HybridLLM` as the agent's engine with the same
+`chat(messages, tools)` interface, plus optional `task=` / `sensitive=`
+hints. Every call passes a deterministic `route()` decision:
+
+1. **Sensitive** (explicit flag or auto-detected high-confidence
+   secrets: API keys, tokens, passwords, private keys) → local only,
+   fail-closed. If the local engine fails, the request is refused —
+   never escalated to remote.
+2. **Tools present** → remote (tool orchestration needs the strong
+   model).
+3. **`task` in `LOCAL_TASKS`** (`summarize`, `extract`, `format`,
+   `classify`) → local. On local failure the request escalates to
+   remote — the weak model tries where it suffices, the strong model
+   catches its failures.
+4. **Default** → remote (preserves pre-router behavior; no silent
+   length heuristics — routing to local requires an explicit hint).
+
+Routing decisions are audited (`llm_route`, `llm_route_escalated`,
+`llm_route_fail_closed`) with the decision and reason only, never
+message content. Ordinary PII (names, emails, phones) is deliberately
+NOT auto-gated; callers that know better pass `sensitive=True`.

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-from core.llm import HybridLLM
+from core.dual_llm import DualLLM
 from core.policy import Policy
 from core.memory import Memory
 from core.executor import SafeExecutor
@@ -339,7 +339,10 @@ class ALIXAgent:
             self.memory,
         )
 
-        self.llm = HybridLLM(use_remote=True)
+        self.llm = DualLLM(
+            use_remote=True,
+            audit_fn=self.audit,
+        )
 
         self.messages = [
             {
