@@ -54,6 +54,19 @@ class Policy:
         }
 
         # =========================================================
+        # Scheduled Mode
+        # =========================================================
+        # Set by the scheduler daemon on its own agent instance.
+        # In scheduled mode there is no user to confirm with, so:
+        #  - destructive tools are NEVER allowed (fail-closed),
+        #  - other tools only up to the per-task pre-authorized
+        #    ceiling in scheduled_allow (granted at schedule time),
+        #  - the scheduler control-plane tools themselves are
+        #    disabled (a scheduled task cannot schedule/cancel).
+        self.scheduled_mode = False
+        self.scheduled_allow = "read"
+
+        # =========================================================
         # Capability Gates
         # =========================================================
         # High-risk capabilities are disabled by default.
@@ -140,6 +153,10 @@ class Policy:
 
             "web_search": "read",
             "web_fetch": "read",
+
+            "schedule_task": "write",
+            "list_scheduled_tasks": "read",
+            "cancel_scheduled_task": "write",
         }
 
         # =========================================================
@@ -687,6 +704,16 @@ class Policy:
         return self.capabilities.get(tool_name, True) is True
 
 
+    #: Control-plane tools a scheduled task must never touch
+    #: (no self-replication, no self-cancellation, no inspection).
+    SCHEDULER_CONTROL_TOOLS = frozenset(
+        {
+            "schedule_task",
+            "list_scheduled_tasks",
+            "cancel_scheduled_task",
+        }
+    )
+
     def tool_allowed(self, tool_name: str) -> bool:
         """
         Return True only for explicitly registered policy tools.
@@ -694,7 +721,42 @@ class Policy:
         if not isinstance(tool_name, str):
             return False
 
+        if (
+            self.scheduled_mode
+            and tool_name in self.SCHEDULER_CONTROL_TOOLS
+        ):
+            return False
+
         return tool_name in self.tool_permissions
+
+    def scheduled_tool_permitted(
+        self,
+        tool_name: str,
+    ) -> bool:
+        """
+        Scheduled-mode gate: pre-authorized ceiling, never
+        destructive. Called by the agent instead of the
+        interactive confirmation when scheduled_mode is on.
+        """
+        if not self.scheduled_mode:
+            return True
+
+        level = self.tool_permissions.get(tool_name)
+        order = self.permission_levels
+
+        if level not in order:
+            return False
+
+        if level == "destructive":
+            # Fail-closed: destructive tools never run unattended.
+            return False
+
+        allowed = self.scheduled_allow
+
+        if allowed not in order:
+            allowed = "read"
+
+        return order[level] <= order[allowed]
 
 
     def tool_permission(self, tool_name: str) -> Optional[str]:

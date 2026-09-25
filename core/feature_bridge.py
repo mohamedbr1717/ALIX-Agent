@@ -48,6 +48,11 @@ def build_migrated_tool_handlers(
     from features.memory.composition import (
         build_remember_fact_controller,
     )
+    from features.scheduler.composition import (
+        build_cancel_task_controller,
+        build_list_tasks_controller,
+        build_schedule_task_controller,
+    )
 
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
@@ -64,6 +69,9 @@ def build_migrated_tool_handlers(
     web_fetch_controller = build_web_fetch_controller()
     verify_file_controller = build_verify_file_controller(policy)
     remember_fact_controller = build_remember_fact_controller(memory)
+    schedule_task_controller = build_schedule_task_controller(policy)
+    list_tasks_controller = build_list_tasks_controller(policy)
+    cancel_task_controller = build_cancel_task_controller(policy)
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -80,4 +88,35 @@ def build_migrated_tool_handlers(
         "git_status": lambda **kwargs: git_status_controller.handle(kwargs),
         "system_info": lambda **kwargs: system_info_controller.handle(kwargs),
         "write_file": lambda **kwargs: write_file_controller.handle(kwargs),
+        "schedule_task": lambda **kwargs: schedule_task_controller.handle(kwargs),
+        "list_scheduled_tasks": lambda **kwargs: list_tasks_controller.handle(kwargs),
+        "cancel_scheduled_task": lambda **kwargs: cancel_task_controller.handle(kwargs),
     }
+
+
+def build_task_store(path=None):
+    """Task store shared by the scheduler tools and the daemon."""
+    from features.scheduler.composition import (
+        build_task_store as _build,
+    )
+
+    return _build(path)
+
+
+def build_run_due_tasks_use_case(
+    store,
+    executor,
+    clock=None,
+    audit_fn=None,
+):
+    """Due-task runner for the scheduler daemon (via the bridge)."""
+    from features.scheduler.application.use_cases.run_due_tasks import (
+        RunDueTasksUseCase,
+    )
+
+    return RunDueTasksUseCase(
+        store=store,
+        executor=executor,
+        clock=clock,
+        audit_fn=audit_fn,
+    )

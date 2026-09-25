@@ -249,6 +249,63 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "schedule_task",
+            "description": (
+                "جدولة مهمة ليعملها ALIX لاحقًا بدون إشراف. "
+                "kind='at' مع تاريخ ISO لمرة واحدة، أو kind='cron' "
+                "مع تعبير cron خماسي (دقيقة ساعة يوم شهر يوم-أسبوع) "
+                "للتكرار. allow هو سقف الصلاحيات المصرَّح به مسبقًا "
+                "(read/write/execute — destructive ممنوع دائمًا)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "prompt": {"type": "string"},
+                    "kind": {"type": "string"},
+                    "schedule": {"type": "string"},
+                    "allow": {"type": "string"},
+                    "catch_up": {"type": "boolean"},
+                    "max_lateness_hours": {"type": "number"}
+                },
+                "required": ["name", "prompt", "kind", "schedule"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "list_scheduled_tasks",
+            "description": "عرض المهام المجدولة الحالية.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "include_done": {"type": "boolean"}
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_scheduled_task",
+            "description": "إلغاء مهمة مجدولة بمعرّفها.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string"}
+                },
+                "required": ["task_id"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "verify_file",
             "description": "التحقق من وجود ملف وحالته بعد عملية كتابة أو تعديل.",
             "parameters": {
@@ -451,6 +508,37 @@ class ALIXAgent:
         """
         يطلب موافقة المستخدم على العمليات الحساسة.
         """
+
+        if getattr(
+            self.policy, "scheduled_mode", False
+        ):
+            # لا يوجد مستخدم للتأكيد في المهام المجدولة:
+            # القرار هو السقف المصرَّح به مسبقًا عند الجدولة.
+            permitted = (
+                self.policy.scheduled_tool_permitted(
+                    name
+                )
+            )
+
+            if not permitted:
+                self.audit(
+                    "scheduled_tool_denied",
+                    {
+                        "tool": name,
+                        "permission": (
+                            self.policy.tool_permission(
+                                name
+                            )
+                        ),
+                        "allowed": getattr(
+                            self.policy,
+                            "scheduled_allow",
+                            "read",
+                        ),
+                    },
+                )
+
+            return permitted
 
         if not self.policy.requires_confirmation(name):
             return True

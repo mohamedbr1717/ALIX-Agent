@@ -155,3 +155,30 @@ Routing decisions are audited (`llm_route`, `llm_route_escalated`,
 `llm_route_fail_closed`) with the decision and reason only, never
 message content. Ordinary PII (names, emails, phones) is deliberately
 NOT auto-gated; callers that know better pass `sensitive=True`.
+
+## Native scheduler (`features/scheduler/`, `scheduler_daemon.py`) <!-- SCHEDULER_DOC -->
+
+The n8n replacement: ALIX schedules its own unattended work natively.
+Three LLM tools (`schedule_task`, `list_scheduled_tasks`,
+`cancel_scheduled_task`) are a vertical slice wired through
+`core/feature_bridge.py` like every other migrated tool.
+
+- **Schedule spec**: `kind="at"` + ISO datetime (one-shot), or
+  `kind="cron"` + 5-field cron expression. Cron parsing lives in
+  pure domain code (`domain/scheduling/cron.py`).
+- **Pre-authorized ceiling**: at schedule time the user grants
+  `allow` ∈ {read, write, execute} — `destructive` is rejected.
+- **Scheduled-mode policy** (`Policy.scheduled_mode`): the daemon
+  runs each due task in a fresh agent with no user to confirm.
+  `confirm_tool()` is replaced by `scheduled_tool_permitted()`:
+  destructive tools are NEVER allowed unattended (fail-closed),
+  other tools only up to the task's ceiling, and the scheduler
+  control-plane tools are disabled (no self-replication).
+- **Daemon** (`scheduler_daemon.py`): 60s tick, single-instance via
+  pid file, results to `scheduler/runs.log` (JSON lines). State in
+  `scheduler/tasks.json` (atomic writes, runtime data — never
+  committed, like `memory/memory.json`).
+- **Android Doze**: after sleep, overdue tasks run once (catch-up)
+  unless older than `max_lateness_hours` (default 24h) — then
+  marked `missed` (cron tasks keep their schedule). A failing task
+  is marked `failed` and still advances, so it can never hot-loop.
