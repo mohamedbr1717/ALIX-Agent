@@ -144,6 +144,23 @@ class ToolRegistry:
             self._migrated_handlers["remember_fact"],
         )
 
+        # Repo-context tools: read-only repo introspection via the vendored
+        # repo-context-mcp server (MCP over stdio, unmodified).
+        self.register(
+            "repo_map",
+            self._migrated_handlers["repo_map"],
+        )
+
+        self.register(
+            "search_code",
+            self._migrated_handlers["search_code"],
+        )
+
+        self.register(
+            "pack_context",
+            self._migrated_handlers["pack_context"],
+        )
+
     # ========================================================
     # QUERY
     # ========================================================

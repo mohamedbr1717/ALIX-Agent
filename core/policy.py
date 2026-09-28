@@ -128,6 +128,18 @@ class Policy:
                 "allowed": {"url", "max_chars"},
                 "required": {"url"},
             },
+            "repo_map": {
+                "allowed": {"root", "max_depth", "max_entries"},
+                "required": set(),
+            },
+            "search_code": {
+                "allowed": {"query", "root", "max_results", "case_sensitive"},
+                "required": {"query"},
+            },
+            "pack_context": {
+                "allowed": {"root", "focus", "max_tokens", "max_files"},
+                "required": set(),
+            },
         }
 
         self.capabilities = {
@@ -153,6 +165,9 @@ class Policy:
 
             "web_search": "read",
             "web_fetch": "read",
+            "repo_map": "read",
+            "search_code": "read",
+            "pack_context": "read",
 
             "schedule_task": "write",
             "list_scheduled_tasks": "read",
@@ -892,6 +907,23 @@ class Policy:
             "web_fetch": {
                 "url": str,
                 "max_chars": int,
+            },
+            "repo_map": {
+                "root": str,
+                "max_depth": int,
+                "max_entries": int,
+            },
+            "search_code": {
+                "query": str,
+                "root": str,
+                "max_results": int,
+                "case_sensitive": bool,
+            },
+            "pack_context": {
+                "root": str,
+                "focus": list,
+                "max_tokens": int,
+                "max_files": int,
             },
         }
 

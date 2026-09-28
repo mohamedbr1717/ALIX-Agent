@@ -360,7 +360,61 @@ TOOLS = [
                 "required": ["url"]
             }
         }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "repo_map",
+            "description": "خريطة خفيفة للمستودع: شجرة الملفات ونقاط الدخول. أداة قراءة فقط لتقليل استهلاك التوكنات.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "root": {"type": "string", "description": "مسار المستودع (افتراضي: مستودع ALIX)."},
+                    "max_depth": {"type": "integer"},
+                    "max_entries": {"type": "integer"}
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "search_code",
+            "description": "البحث عن نص داخل ملفات مستودع. أداة قراءة فقط.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "النص المراد البحث عنه."},
+                    "root": {"type": "string"},
+                    "max_results": {"type": "integer"},
+                    "case_sensitive": {"type": "boolean"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "pack_context",
+            "description": "حزمة سياق المستودع بميزانية توكنات: أهم الملفات ذات الصلة فقط. استخدمها قبل مهام الكود الكبيرة لتوفير التوكنات.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "root": {"type": "string"},
+                    "focus": {"type": "array", "items": {"type": "string"}, "description": "كلمات مفتاحية للتركيز."},
+                    "max_tokens": {"type": "integer", "description": "ميزانية التوكنات (500-200000)."},
+                    "max_files": {"type": "integer"}
+                },
+                "required": []
+            }
+        }
     }
+
 ]
 
 

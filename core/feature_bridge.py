@@ -53,6 +53,11 @@ def build_migrated_tool_handlers(
         build_list_tasks_controller,
         build_schedule_task_controller,
     )
+    from features.repo_context.composition import (
+        build_pack_context_controller,
+        build_repo_map_controller,
+        build_search_code_controller,
+    )
 
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
@@ -72,6 +77,9 @@ def build_migrated_tool_handlers(
     schedule_task_controller = build_schedule_task_controller(policy)
     list_tasks_controller = build_list_tasks_controller(policy)
     cancel_task_controller = build_cancel_task_controller(policy)
+    repo_map_controller = build_repo_map_controller(policy)
+    search_code_controller = build_search_code_controller(policy)
+    pack_context_controller = build_pack_context_controller(policy)
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -88,6 +96,9 @@ def build_migrated_tool_handlers(
         "git_status": lambda **kwargs: git_status_controller.handle(kwargs),
         "system_info": lambda **kwargs: system_info_controller.handle(kwargs),
         "write_file": lambda **kwargs: write_file_controller.handle(kwargs),
+        "repo_map": lambda **kwargs: repo_map_controller.handle(kwargs),
+        "search_code": lambda **kwargs: search_code_controller.handle(kwargs),
+        "pack_context": lambda **kwargs: pack_context_controller.handle(kwargs),
         "schedule_task": lambda **kwargs: schedule_task_controller.handle(kwargs),
         "list_scheduled_tasks": lambda **kwargs: list_tasks_controller.handle(kwargs),
         "cancel_scheduled_task": lambda **kwargs: cancel_task_controller.handle(kwargs),
