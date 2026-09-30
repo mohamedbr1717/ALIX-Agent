@@ -132,6 +132,27 @@ class LocalLLM:
                     )
                 }
 
+            # المحتوى الفارغ = فشل صريح: عيب حلقة التفكير في
+            # النماذج الصغيرة ينتج content فارغًا (احتراق الميزانية
+            # أو توقف قبل </think>)، فيُعامل كفشل ليتمكن الموجّه
+            # من التصعيد للنموذج البعيد. استثناء: رسائل tool_calls
+            # قد تحمل content فارغًا شرعيًا فتُمرَّر كما هي.
+            content = message.get("content")
+            tool_calls = message.get("tool_calls")
+
+            if not tool_calls and not (
+                isinstance(content, str)
+                and content.strip()
+            ):
+
+                return {
+                    "role": "assistant",
+                    "content": (
+                        "❌ المحرك المحلي أعاد "
+                        "محتوى فارغًا."
+                    )
+                }
+
             return message
 
         except urllib.error.HTTPError as exc:
@@ -196,7 +217,7 @@ class HybridLLM:
     """
     محرك LLM هجين:
 
-        OpenRouter
+        Remote (OpenRouter / Groq)
              ↓
         Retry
              ↓
@@ -209,6 +230,35 @@ class HybridLLM:
     DEFAULT_REMOTE_MODEL = (
         "openai/gpt-oss-120b"
     )
+
+    # مزودو الخدمة البعيدة المدعومون.
+    # يُختار المزود عبر REMOTE_PROVIDER
+    # (openrouter افتراضيًا).
+    # Groq: طبقة مجانية دائمة بدون بطاقة بنكية.
+    REMOTE_PROVIDERS = {
+        "openrouter": {
+            "label": "OpenRouter",
+            "base_url": (
+                "https://openrouter.ai/api/v1"
+            ),
+            "key_var": "OPENROUTER_API_KEY",
+            "model_var": "OPENROUTER_MODEL",
+            "default_model": (
+                DEFAULT_REMOTE_MODEL
+            ),
+        },
+        "groq": {
+            "label": "Groq",
+            "base_url": (
+                "https://api.groq.com/openai/v1"
+            ),
+            "key_var": "GROQ_API_KEY",
+            "model_var": "GROQ_MODEL",
+            "default_model": (
+                "llama-3.3-70b-versatile"
+            ),
+        },
+    }
 
     def __init__(
         self,
@@ -235,16 +285,38 @@ class HybridLLM:
         )
         file_env = dotenv_values(env_file)
 
+        provider_name = (
+            file_env.get("REMOTE_PROVIDER")
+            or os.getenv(
+                "REMOTE_PROVIDER",
+                "openrouter"
+            )
+        ).strip().lower()
+
+        if provider_name not in self.REMOTE_PROVIDERS:
+
+            provider_name = "openrouter"
+
+        self.provider = provider_name
+
+        provider_cfg = self.REMOTE_PROVIDERS[
+            self.provider
+        ]
+
+        self.remote_label = provider_cfg[
+            "label"
+        ]
+
         self.api_key = (
-            file_env.get("OPENROUTER_API_KEY")
-            or os.getenv("OPENROUTER_API_KEY")
+            file_env.get(provider_cfg["key_var"])
+            or os.getenv(provider_cfg["key_var"])
         )
 
         self.model = (
-            file_env.get("OPENROUTER_MODEL")
+            file_env.get(provider_cfg["model_var"])
             or os.getenv(
-                "OPENROUTER_MODEL",
-                self.DEFAULT_REMOTE_MODEL
+                provider_cfg["model_var"],
+                provider_cfg["default_model"]
             )
         )
         self.client: Optional[
@@ -260,9 +332,9 @@ class HybridLLM:
 
                 self.client = OpenAI(
                     api_key=self.api_key,
-                    base_url=(
-                        "https://openrouter.ai/api/v1"
-                    ),
+                    base_url=provider_cfg[
+                        "base_url"
+                    ],
                     timeout=90.0,
                     max_retries=0
                 )
@@ -317,7 +389,7 @@ class HybridLLM:
         if not self.client:
 
             raise RuntimeError(
-                "OpenRouter غير مهيأ."
+                f"{self.remote_label} غير مهيأ."
             )
 
         kwargs: dict[str, Any] = {
@@ -393,7 +465,7 @@ class HybridLLM:
                     if not choices:
 
                         raise RuntimeError(
-                            "OpenRouter أرسل استجابة "
+                            f"{self.remote_label} أرسل استجابة "
                             "بدون choices."
                         )
 
@@ -415,7 +487,7 @@ class HybridLLM:
                         time.sleep(delay)
 
             print(
-                "⚠️ فشل OpenRouter بعد "
+                f"⚠️ فشل {self.remote_label} بعد "
                 f"{self.max_retries + 1} محاولة."
             )
 
@@ -447,6 +519,7 @@ class HybridLLM:
 
         return {
             "remote_enabled": self.use_remote,
+            "remote_provider": self.provider,
             "remote_configured": bool(
                 self.api_key
             ),
