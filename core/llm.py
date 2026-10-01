@@ -25,7 +25,8 @@ class LocalLLM:
         self,
         url: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: int = 120
+        timeout: int = 120,
+        think_budget_chars: Optional[int] = None
     ):
 
         self.url = (
@@ -49,6 +50,15 @@ class LocalLLM:
             int(timeout)
         )
 
+        raw_budget = (
+            think_budget_chars
+            if think_budget_chars is not None
+            else os.getenv("ALIX_THINK_BUDGET_CHARS")
+        )
+        self.think_budget_chars = self._parse_think_budget(
+            raw_budget
+        )
+
     # ============================================================
     # Local chat
     # ============================================================
@@ -58,6 +68,12 @@ class LocalLLM:
         messages: list[dict],
         tools: Optional[list[dict]] = None
     ) -> dict:
+
+        if self.think_budget_chars:
+            return self._chat_streaming(
+                messages,
+                tools
+            )
 
         payload: dict[str, Any] = {
             "model": self.model,
@@ -211,6 +227,344 @@ class LocalLLM:
                     f"{exc}"
                 )
             }
+
+    # ============================================================
+    # Streaming chat with a runtime think budget
+    # ============================================================
+
+    @staticmethod
+    def _parse_think_budget(
+        raw: Any
+    ) -> Optional[int]:
+        """حروف التفكير المسموحة قبل إجهاض البث.
+
+        يُقاس عبر حقل reasoning_content المنفصل (llama-server)
+        أو مقطع <think> داخل المحتوى كاحتياط.
+
+        None/""/قيمة فاسدة → الافتراضي 4000. "0" → معطّل.
+        """
+
+        if raw is None:
+            return 4000
+
+        if isinstance(raw, str) and not raw.strip():
+            return 4000
+
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return 4000
+
+        return value if value > 0 else None
+
+    @staticmethod
+    def _think_len(text: str) -> int:
+        """طول مقطع <think>…</think> (أو المفتوح منه) بالحروف."""
+
+        start = text.find("<think>")
+
+        if start == -1:
+            return 0
+
+        start += len("<think>")
+        end = text.find("</think>", start)
+
+        if end == -1:
+            return len(text) - start
+
+        return end - start
+
+    @staticmethod
+    def _think_budget_exceeded(
+        budget: int,
+        measured: int
+    ) -> dict:
+        """قاموس الفشل الموحّد عند تجاوز ميزانية التفكير."""
+
+        return {
+            "role": "assistant",
+            "content": (
+                "❌ تجاوز المحرك المحلي "
+                "ميزانية التفكير "
+                f"({measured} > {budget} حرف)."
+            )
+        }
+
+    @staticmethod
+    def _normalize_stream_message(
+        message: dict
+    ) -> dict:
+        """المحتوى الفارغ = فشل صريح (مسار البث).
+
+        نفس قاعدة chat(): رسائل tool_calls قد تحمل content
+        فارغًا شرعيًا فتُمرَّر كما هي.
+        """
+
+        content = message.get("content")
+        tool_calls = message.get("tool_calls")
+
+        if not tool_calls and not (
+            isinstance(content, str)
+            and content.strip()
+        ):
+
+            return {
+                "role": "assistant",
+                "content": (
+                    "❌ المحرك المحلي أعاد "
+                    "محتوى فارغًا."
+                )
+            }
+
+        return message
+
+    def _request_error_dict(
+        self,
+        exc: Exception
+    ) -> dict:
+        """ترجمة أي عطل نقل إلى قاموس الفشل الموحّد."""
+
+        if isinstance(
+            exc,
+            urllib.error.HTTPError
+        ):
+
+            try:
+                body = exc.read().decode(
+                    "utf-8",
+                    errors="replace"
+                )[:1000]
+            except Exception:
+                body = ""
+
+            text = (
+                "❌ خطأ HTTP في المحرك المحلي: "
+                f"{exc.code} {body}"
+            )
+
+        elif isinstance(
+            exc,
+            urllib.error.URLError
+        ):
+
+            text = (
+                "❌ تعذر الاتصال بالمحرك المحلي: "
+                f"{exc.reason}"
+            )
+
+        elif isinstance(exc, TimeoutError):
+
+            text = "❌ انتهت مهلة المحرك المحلي."
+
+        elif isinstance(
+            exc,
+            json.JSONDecodeError
+        ):
+
+            text = (
+                "❌ المحرك المحلي أرسل "
+                "استجابة JSON غير صالحة."
+            )
+
+        else:
+
+            text = (
+                "❌ خطأ في المحرك المحلي: "
+                f"{exc}"
+            )
+
+        return {
+            "role": "assistant",
+            "content": text
+        }
+
+    def _chat_streaming(
+        self,
+        messages: list[dict],
+        tools: Optional[list[dict]] = None
+    ) -> dict:
+        """بث SSE مع إجهاض عند تجاوز ميزانية التفكير.
+
+        نراقب التفكير أثناء البث — أساسًا عبر حقل
+        reasoning_content المنفصل الذي يبثه llama-server،
+        واحتياطيًا عبر مقطع <think> داخل المحتوى لمن لا
+        يفصل الحقل. عند التجاوز نغلق الاتصال فورًا ونعيد
+        فشلًا صريحًا فيصعّد الموجّه للبعيد.
+        """
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 2048,
+            "stream": True
+        }
+
+        if tools:
+
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        data = json.dumps(
+            payload,
+            ensure_ascii=False
+        ).encode("utf-8")
+
+        request = urllib.request.Request(
+            self.url,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream"
+            },
+            method="POST"
+        )
+
+        try:
+            response = urllib.request.urlopen(
+                request,
+                timeout=self.timeout
+            )
+        except Exception as exc:
+
+            return self._request_error_dict(exc)
+
+        try:
+
+            return self._read_stream(
+                response,
+                self.think_budget_chars
+            )
+
+        except Exception as exc:
+
+            return self._request_error_dict(exc)
+
+        finally:
+
+            try:
+                response.close()
+            except Exception:
+                pass
+
+    def _read_stream(
+        self,
+        response: Any,
+        budget: int
+    ) -> dict:
+        """تجميع أحداث SSE وإجهاض البث عند تجاوز الميزانية."""
+
+        content_parts: list[str] = []
+        tool_calls: dict[int, dict] = {}
+        role = "assistant"
+        reasoning_len = 0
+
+        for raw_line in response:
+
+            line = (
+                raw_line.decode("utf-8", errors="replace")
+                if isinstance(raw_line, bytes)
+                else str(raw_line)
+            ).strip()
+
+            if not line.startswith("data:"):
+                continue
+
+            data = line[5:].strip()
+
+            if data == "[DONE]":
+                break
+
+            try:
+                event = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+
+            choices = event.get("choices") or []
+            delta = (
+                choices[0].get("delta")
+                if choices
+                else None
+            ) or {}
+
+            if not delta:
+                continue
+
+            if delta.get("role"):
+                role = delta["role"]
+
+            # حقل التفكير المنفصل (llama-server:
+            # reasoning_content).
+            reasoning = (
+                delta.get("reasoning_content")
+                or delta.get("reasoning")
+            )
+
+            if isinstance(reasoning, str) and reasoning:
+                reasoning_len += len(reasoning)
+
+                if reasoning_len > budget:
+                    return self._think_budget_exceeded(
+                        budget,
+                        reasoning_len
+                    )
+
+            piece = delta.get("content")
+
+            if piece:
+                content_parts.append(piece)
+
+                # احتياط: وسوم <think> لمن لا يفصل حقل
+                # التفكير.
+                think_len = self._think_len(
+                    "".join(content_parts)
+                )
+
+                if think_len > budget:
+                    return self._think_budget_exceeded(
+                        budget,
+                        think_len
+                    )
+
+            for call in delta.get("tool_calls") or []:
+                index = call.get("index", 0)
+                slot = tool_calls.setdefault(
+                    index,
+                    {
+                        "id": call.get("id", ""),
+                        "type": call.get("type", "function"),
+                        "function": {
+                            "name": "",
+                            "arguments": ""
+                        }
+                    }
+                )
+
+                if call.get("id"):
+                    slot["id"] = call["id"]
+
+                func = call.get("function") or {}
+
+                if func.get("name"):
+                    slot["function"]["name"] = func["name"]
+
+                if func.get("arguments"):
+                    slot["function"]["arguments"] += func[
+                        "arguments"
+                    ]
+
+        message: dict[str, Any] = {
+            "role": role,
+            "content": "".join(content_parts)
+        }
+
+        if tool_calls:
+            message["tool_calls"] = [
+                tool_calls[index]
+                for index in sorted(tool_calls)
+            ]
+
+        return self._normalize_stream_message(message)
 
 
 class HybridLLM:
