@@ -702,6 +702,19 @@ class HybridLLM:
 
             self.use_remote = False
 
+
+    def _fresh_client(self):
+        """عميل جديد لكل طلب — يتجنب connection pool العالق."""
+        from openai import OpenAI
+
+        provider_cfg = self.REMOTE_PROVIDERS[self.provider]
+        return OpenAI(
+            api_key=self.api_key,
+            base_url=provider_cfg["base_url"],
+            timeout=90.0,
+            max_retries=0,
+        )
+
     # ============================================================
     # Safe error text
     # ============================================================
@@ -761,7 +774,7 @@ class HybridLLM:
         # ولكن عدم تمريره افتراضيًا أكثر توافقًا.
         try:
 
-            return self.client.chat.completions.create(
+            return self._fresh_client().chat.completions.create(
                 **kwargs
             )
 
@@ -774,7 +787,7 @@ class HybridLLM:
                 None
             )
 
-            return self.client.chat.completions.create(
+            return self._fresh_client().chat.completions.create(
                 **kwargs
             )
 
