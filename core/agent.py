@@ -1389,13 +1389,51 @@ class ALIXAgent:
             message,
             "model_dump"
         ):
-            data = message.model_dump()
-
-            if not isinstance(
-                data,
-                dict
-            ):
-                data = {}
+            # CLEAN_TOOL_MESSAGE: نبني رسالة نظيفة بالحقول المدعومة فقط.
+            # model_dump() الكامل يحوي حقولًا يرفضها Groq (annotations, ...).
+            try:
+                raw = message.model_dump()
+            except Exception:
+                raw = {}
+            data = {"role": "assistant"}
+            content = raw.get("content")
+            # content قد يكون None مع tool_calls — نحتفظ به كما هو.
+            data["content"] = content
+            tool_calls = raw.get("tool_calls")
+            if tool_calls:
+                # تنظيف كل tool_call للحقول الأساسية فقط.
+                clean_calls = []
+                for tc in tool_calls:
+                    if isinstance(tc, dict):
+                        fn = tc.get("function", {})
+                        clean_calls.append(
+                            {
+                                "id": tc.get("id"),
+                                "type": tc.get("type", "function"),
+                                "function": {
+                                    "name": fn.get("name"),
+                                    "arguments": fn.get("arguments"),
+                                },
+                            }
+                        )
+                    else:
+                        # كائن — نحوّله عبر model_dump جزئي.
+                        try:
+                            tcd = tc.model_dump() if hasattr(tc, "model_dump") else {}
+                        except Exception:
+                            tcd = {}
+                        fn = tcd.get("function", {}) or {}
+                        clean_calls.append(
+                            {
+                                "id": tcd.get("id"),
+                                "type": tcd.get("type", "function"),
+                                "function": {
+                                    "name": fn.get("name"),
+                                    "arguments": fn.get("arguments"),
+                                },
+                            }
+                        )
+                data["tool_calls"] = clean_calls
 
         elif isinstance(
             message,
