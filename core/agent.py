@@ -1437,6 +1437,11 @@ class ALIXAgent:
             data["tool_calls"] = _clean_calls
         data["role"] = "assistant"
 
+        # Groq يرفض function_call=null — نحذفه إن كان فارغًا.
+        # (tool_calls هو الحقل الحديث المستخدم.)
+        if data.get("function_call") is None:
+            data.pop("function_call", None)
+
         return data
 
     # ============================================================
