@@ -52,6 +52,7 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     ("core/feature_bridge.py", "features.web.composition"),
     ("core/feature_bridge.py", "features.memory.composition"),
     ("core/feature_bridge.py", "features.scheduler.composition"),
+    ("core/feature_bridge.py", "features.phone.composition"),
     (
         "core/feature_bridge.py",
         "features.scheduler.application.use_cases.run_due_tasks",

@@ -128,6 +128,18 @@ class Policy:
                 "allowed": {"url", "max_chars"},
                 "required": {"url"},
             },
+            "phone_call": {
+                "allowed": {"number"},
+                "required": {"number"},
+            },
+            "send_sms": {
+                "allowed": {"number", "message"},
+                "required": {"number", "message"},
+            },
+            "notify": {
+                "allowed": {"title", "content"},
+                "required": {"content"},
+            },
             "repo_map": {
                 "allowed": {"root", "max_depth", "max_entries"},
                 "required": set(),
@@ -172,6 +184,13 @@ class Policy:
             "schedule_task": "write",
             "list_scheduled_tasks": "read",
             "cancel_scheduled_task": "write",
+            "gmail_search": "read",
+            "gmail_read": "read",
+            "gmail_reply": "destructive",
+            "gmail_send": "destructive",
+            "phone_call": "destructive",
+            "send_sms": "destructive",
+            "notify": "read",
         }
 
         # =========================================================
@@ -907,6 +926,17 @@ class Policy:
             "web_fetch": {
                 "url": str,
                 "max_chars": int,
+            },
+            "phone_call": {
+                "number": str,
+            },
+            "send_sms": {
+                "number": str,
+                "message": str,
+            },
+            "notify": {
+                "title": str,
+                "content": str,
             },
             "repo_map": {
                 "root": str,

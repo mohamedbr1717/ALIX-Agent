@@ -53,10 +53,21 @@ def build_migrated_tool_handlers(
         build_list_tasks_controller,
         build_schedule_task_controller,
     )
+    from features.phone.composition import (
+        build_notify_controller,
+        build_phone_call_controller,
+        build_send_sms_controller,
+    )
     from features.repo_context.composition import (
         build_pack_context_controller,
         build_repo_map_controller,
         build_search_code_controller,
+    )
+    from features.gmail.composition import (
+        build_gmail_read_controller,
+        build_gmail_reply_controller,
+        build_gmail_search_controller,
+        build_gmail_send_controller,
     )
 
     read_file_controller = build_read_file_controller(policy)
@@ -77,9 +88,16 @@ def build_migrated_tool_handlers(
     schedule_task_controller = build_schedule_task_controller(policy)
     list_tasks_controller = build_list_tasks_controller(policy)
     cancel_task_controller = build_cancel_task_controller(policy)
+    phone_call_controller = build_phone_call_controller(policy)
+    send_sms_controller = build_send_sms_controller(policy)
+    notify_controller = build_notify_controller(policy)
     repo_map_controller = build_repo_map_controller(policy)
     search_code_controller = build_search_code_controller(policy)
     pack_context_controller = build_pack_context_controller(policy)
+    gmail_search_controller = build_gmail_search_controller()
+    gmail_read_controller = build_gmail_read_controller()
+    gmail_reply_controller = build_gmail_reply_controller()
+    gmail_send_controller = build_gmail_send_controller()
 
     return {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -102,6 +120,13 @@ def build_migrated_tool_handlers(
         "schedule_task": lambda **kwargs: schedule_task_controller.handle(kwargs),
         "list_scheduled_tasks": lambda **kwargs: list_tasks_controller.handle(kwargs),
         "cancel_scheduled_task": lambda **kwargs: cancel_task_controller.handle(kwargs),
+        "gmail_search": lambda **kwargs: gmail_search_controller.handle(kwargs),
+        "gmail_read": lambda **kwargs: gmail_read_controller.handle(kwargs),
+        "gmail_reply": lambda **kwargs: gmail_reply_controller.handle(kwargs),
+        "gmail_send": lambda **kwargs: gmail_send_controller.handle(kwargs),
+        "phone_call": lambda **kwargs: phone_call_controller.handle(kwargs),
+        "send_sms": lambda **kwargs: send_sms_controller.handle(kwargs),
+        "notify": lambda **kwargs: notify_controller.handle(kwargs),
     }
 
 

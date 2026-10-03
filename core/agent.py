@@ -413,6 +413,132 @@ TOOLS = [
                 "required": []
             }
         }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "phone_call",
+            "description": "إجراء مكالمة هاتفية عبر Termux:API. تتطلب موافقة صريحة من المستخدم لكل مكالمة، ولا تعمل أبدًا في المهام المجدولة.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "description": "رقم الهاتف (أرقام و+ ومسافات فقط)."
+                    }
+                },
+                "required": ["number"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "send_sms",
+            "description": "إرسال رسالة SMS عبر Termux:API. تتطلب موافقة صريحة من المستخدم لكل رسالة، ولا تعمل أبدًا في المهام المجدولة.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "description": "رقم الهاتف (أرقام و+ ومسافات فقط)."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "نص الرسالة (حتى 500 حرف)."
+                    }
+                },
+                "required": ["number", "message"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "notify",
+            "description": "عرض تنبيه على شاشة الهاتف عبر Termux:API. أداة قراءة فقط (لا تحتاج موافقة) — لتنبيه المستخدم.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "عنوان التنبيه."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "محتوى التنبيه."
+                    }
+                },
+                "required": ["content"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "gmail_search",
+            "description": "البحث في بريد Gmail الوارد وإرجاع أحدث الرسائل المطابقة (المرسل والموضوع والتاريخ). أداة قراءة فقط.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "نص البحث (اختياري؛ فارغ = الأحدث)."},
+                    "max_results": {"type": "integer", "description": "عدد النتائج (1-25)."}
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "gmail_read",
+            "description": "قراءة رسالة Gmail كاملة بالنص. أداة قراءة فقط.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "معرف الرسالة (uid من gmail_search)."}
+                },
+                "required": ["message_id"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "gmail_reply",
+            "description": "الرد على رسالة Gmail. أداة مدمرة: تتطلب موافقة صريحة ولا تعمل في الوضع المجدول.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "معرف الرسالة الأصلية."},
+                    "body": {"type": "string", "description": "نص الرد."}
+                },
+                "required": ["message_id", "body"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "gmail_send",
+            "description": "إرسال بريد Gmail جديد. أداة مدمرة: تتطلب موافقة صريحة ولا تعمل في الوضع المجدول.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "البريد المستلم."},
+                    "subject": {"type": "string", "description": "الموضوع."},
+                    "body": {"type": "string", "description": "نص الرسالة."}
+                },
+                "required": ["to", "body"]
+            }
+        }
     }
 
 ]
@@ -1284,6 +1410,30 @@ class ALIXAgent:
                 )
             }
 
+        # GROQ_SANITIZE_V2: إسقاط الحقول غير المدعومة من المزوّد
+        # (مثل annotations) — Groq يرفض الطلب (400) عند وجودها في
+        # رسالة assistant فيسقط الوكيل بصمت إلى المحلي البطيء.
+        # حذف فقط (fail-closed): لا إضافة ولا تعديل للقيم المبقاة.
+        _allowed = {"role", "content", "name", "tool_calls", "function_call"}
+        data = {k: v for k, v in data.items() if k in _allowed}
+        _tool_calls = data.get("tool_calls")
+        if isinstance(_tool_calls, list):
+            _clean_calls = []
+            for _tc in _tool_calls:
+                if not isinstance(_tc, dict):
+                    continue
+                _entry = {
+                    k: v for k, v in _tc.items()
+                    if k in {"id", "type", "function"}
+                }
+                _fn = _entry.get("function")
+                if isinstance(_fn, dict):
+                    _entry["function"] = {
+                        k: v for k, v in _fn.items()
+                        if k in {"name", "arguments"}
+                    }
+                _clean_calls.append(_entry)
+            data["tool_calls"] = _clean_calls
         data["role"] = "assistant"
 
         return data
