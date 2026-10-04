@@ -66,6 +66,28 @@ class TermuxApiGateway:
                 "message": "رقم هاتف غير صالح.",
                 "evidence": {},
             }
+        # VPS mode: Termux:API unavailable → enqueue for phone poller.
+        if shutil.which("termux-telephony-call") is None:
+            try:
+                from core.phone_queue import enqueue_request
+                req = enqueue_request("call", number)
+                return {
+                    "ok": True,
+                    "action": "phone_call",
+                    "message": (
+                        "تم إدراج طلب المكالمة في طابور الهاتف "
+                        f"(ID: {req['id']}). بانتظار موافقة المستخدم "
+                        "وتنفيذه من الهاتف."
+                    ),
+                    "evidence": {"number": number, "queue_id": req["id"], "queued": True},
+                }
+            except Exception as e:
+                return {
+                    "ok": False,
+                    "action": "phone_call",
+                    "message": f"تعذر إدراج الطلب في الطابور: {str(e)[:150]}",
+                    "evidence": {"number": number},
+                }
         r = self._run(["termux-telephony-call", number], timeout=30)
         if not r["ok"]:
             return {
@@ -99,6 +121,28 @@ class TermuxApiGateway:
                 "message": "نص الرسالة فارغ.",
                 "evidence": {},
             }
+        # VPS mode: Termux:API unavailable → enqueue for phone poller.
+        if shutil.which("termux-sms-send") is None:
+            try:
+                from core.phone_queue import enqueue_request
+                req = enqueue_request("sms", number, message)
+                return {
+                    "ok": True,
+                    "action": "send_sms",
+                    "message": (
+                        "تم إدراج طلب الرسالة في طابور الهاتف "
+                        f"(ID: {req['id']}). بانتظار موافقة المستخدم "
+                        "وتنفيذه من الهاتف."
+                    ),
+                    "evidence": {"number": number, "queue_id": req["id"], "queued": True},
+                }
+            except Exception as e:
+                return {
+                    "ok": False,
+                    "action": "send_sms",
+                    "message": f"تعذر إدراج الطلب في الطابور: {str(e)[:150]}",
+                    "evidence": {"number": number},
+                }
         r = self._run(
             ["termux-sms-send", "-n", number, message], timeout=30
         )
