@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from dotenv import dotenv_values
+import re
 import time
 import urllib.error
 import urllib.request
@@ -719,6 +720,19 @@ class HybridLLM:
     # Safe error text
     # ============================================================
 
+    def _rate_limit_wait(self, exc: Exception) -> float | None:
+        """استخرج مدة الانتظار المقترحة من خطأ 429 (إن وُجدت)."""
+        text = str(exc)
+        if "429" not in text and "rate_limit" not in text.lower():
+            return None
+        m = re.search(r"try again in ([\d.]+)s", text)
+        if m:
+            try:
+                return float(m.group(1)) + 0.5  # هامش أمان
+            except ValueError:
+                pass
+        return None
+
     def _safe_error(
         self,
         error: Exception
@@ -759,10 +773,13 @@ class HybridLLM:
                 f"{self.remote_label} غير مهيأ."
             )
 
+        # Tool calls need short outputs — lower the token budget to
+        # stay under Groq's TPM rate limit.
+        _max_tokens = 1024 if tools else 4096
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "max_completion_tokens": 4096
+            "max_completion_tokens": _max_tokens
         }
 
         if tools:
@@ -846,10 +863,15 @@ class HybridLLM:
 
                     if attempt < self.max_retries:
 
-                        delay = min(
-                            2 ** attempt,
-                            5
-                        )
+                        # 429: احترم مدة الانتظار المقترحة من Groq.
+                        wait = self._rate_limit_wait(exc)
+                        if wait is not None:
+                            delay = min(wait, 30)
+                        else:
+                            delay = min(
+                                2 ** attempt,
+                                5
+                            )
 
                         time.sleep(delay)
 
