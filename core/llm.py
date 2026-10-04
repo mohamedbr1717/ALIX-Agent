@@ -773,6 +773,15 @@ class HybridLLM:
                 f"{self.remote_label} غير مهيأ."
             )
 
+        # ALIX native context compression: reduce tokens before sending.
+        # Fail-closed: on error, sends original messages.
+        try:
+            from core.context_compressor import ContextCompressor
+            _compressor = ContextCompressor(max_tokens=6000)
+            messages = _compressor.compress(messages)
+        except Exception:
+            pass
+
         # Tool calls need short outputs — lower the token budget to
         # stay under Groq's TPM rate limit.
         _max_tokens = 1024 if tools else 4096
