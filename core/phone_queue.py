@@ -1,8 +1,22 @@
 """ALIX phone queue — VPS↔phone bridge for calls/SMS.
 
-VPS side: ALIX enqueues requests when Termux:API is unavailable.
-Phone side: poller script (Termux) picks up requests via SSH,
-prompts for explicit approval, executes via Termux:API.
+Architecture (two sides):
+  VPS side (this module): ALIX enqueues call/SMS requests when
+      Termux:API is unavailable on the server. Requests wait in
+      phone_queue/requests/ until the phone poller picks them up.
+
+  Phone side (phone_poller.sh): a SEPARATE script that runs on the
+      phone under Termux. It polls the VPS queue via SSH, prompts
+      the user for EXPLICIT approval for each request, executes via
+      Termux:API (termux-telephony-call / termux-sms-send), and writes
+      the result back. The poller is version-controlled in this repo
+      (see phone_poller.sh) and installed to ~/phone_poller.sh on
+      the phone.
+
+Security: no request executes without explicit on-device user
+approval. A scheduled task can never trigger a call: phone_call /
+send_sms are "destructive" and Policy fail-closes them in
+scheduled mode (see core/policy.py::scheduled_tool_permitted).
 
 Queue layout (under ALIX-Agent/phone_queue/):
     requests/<id>.json  — pending requests
