@@ -14,6 +14,24 @@ from features.web.infrastructure.adapters.web_tools_fetch_runner import (
 from features.web.infrastructure.adapters.web_tools_search_runner import (
     WebToolsSearchRunnerAdapter,
 )
+from features.web.application.use_cases.browse_page import BrowsePageUseCase
+from features.web.application.use_cases.browser_fill import BrowserFillUseCase
+from features.web.application.use_cases.browser_submit import BrowserSubmitUseCase
+from features.web.infrastructure.adapters.browser_authorization import (
+    BrowserAuthorizationAdapter,
+)
+from features.web.infrastructure.adapters.playwright_runner import (
+    PlaywrightRunnerAdapter,
+)
+from features.web.interfaces.controllers.browse_page_controller import (
+    BrowsePageController,
+)
+from features.web.interfaces.controllers.browser_fill_controller import (
+    BrowserFillController,
+)
+from features.web.interfaces.controllers.browser_submit_controller import (
+    BrowserSubmitController,
+)
 from features.web.interfaces.controllers.web_fetch_controller import (
     WebFetchController,
 )
@@ -42,3 +60,40 @@ def build_web_fetch_controller() -> WebFetchController:
         runner=runner,
     )
     return WebFetchController(use_case)
+
+
+def _build_browser_stack():
+    """Shared authorization + runner for browser tools."""
+    authorization = BrowserAuthorizationAdapter()
+    runner = PlaywrightRunnerAdapter()
+    return authorization, runner
+
+
+def build_browse_page_controller() -> BrowsePageController:
+    """Build the browse_page controller (read level)."""
+    authorization, runner = _build_browser_stack()
+    use_case = BrowsePageUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return BrowsePageController(use_case)
+
+
+def build_browser_fill_controller() -> BrowserFillController:
+    """Build the browser_fill controller (execute level)."""
+    authorization, runner = _build_browser_stack()
+    use_case = BrowserFillUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return BrowserFillController(use_case)
+
+
+def build_browser_submit_controller() -> BrowserSubmitController:
+    """Build the browser_submit controller (destructive level)."""
+    authorization, runner = _build_browser_stack()
+    use_case = BrowserSubmitUseCase(
+        authorization=authorization,
+        runner=runner,
+    )
+    return BrowserSubmitController(use_case)

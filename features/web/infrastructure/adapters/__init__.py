@@ -1,0 +1,2 @@
+from features.web.infrastructure.adapters.playwright_runner import PlaywrightRunnerAdapter
+from features.web.infrastructure.adapters.browser_authorization import BrowserAuthorizationAdapter

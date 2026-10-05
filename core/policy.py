@@ -177,6 +177,9 @@ class Policy:
 
             "web_search": "read",
             "web_fetch": "read",
+            "browse_page": "read",
+            "browser_fill": "execute",
+            "browser_submit": "destructive",
             "repo_map": "read",
             "search_code": "read",
             "pack_context": "read",

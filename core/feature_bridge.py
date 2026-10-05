@@ -42,6 +42,9 @@ def build_migrated_tool_handlers(
         build_write_file_controller,
     )
     from features.web.composition import (
+        build_browse_page_controller,
+        build_browser_fill_controller,
+        build_browser_submit_controller,
         build_web_fetch_controller,
         build_web_search_controller,
     )
@@ -83,6 +86,9 @@ def build_migrated_tool_handlers(
     search_files_controller = build_search_files_controller(policy)
     web_search_controller = build_web_search_controller()
     web_fetch_controller = build_web_fetch_controller()
+    browse_page_controller = build_browse_page_controller()
+    browser_fill_controller = build_browser_fill_controller()
+    browser_submit_controller = build_browser_submit_controller()
     verify_file_controller = build_verify_file_controller(policy)
     remember_fact_controller = build_remember_fact_controller(memory)
     schedule_task_controller = build_schedule_task_controller(policy)
@@ -106,6 +112,9 @@ def build_migrated_tool_handlers(
         "read_file": lambda **kwargs: read_file_controller.handle(kwargs),
         "search_files": lambda **kwargs: search_files_controller.handle(kwargs),
         "web_fetch": lambda **kwargs: web_fetch_controller.handle(kwargs),
+        "browse_page": lambda **kwargs: browse_page_controller.handle(kwargs),
+        "browser_fill": lambda **kwargs: browser_fill_controller.handle(kwargs),
+        "browser_submit": lambda **kwargs: browser_submit_controller.handle(kwargs),
         "web_search": lambda **kwargs: web_search_controller.handle(kwargs),
         "verify_file": lambda **kwargs: verify_file_controller.handle(kwargs),
         "remember_fact": lambda **kwargs: remember_fact_controller.handle(kwargs),

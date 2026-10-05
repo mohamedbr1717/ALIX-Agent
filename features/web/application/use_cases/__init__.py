@@ -1,0 +1,3 @@
+from features.web.application.use_cases.browse_page import BrowsePageUseCase
+from features.web.application.use_cases.browser_fill import BrowserFillUseCase
+from features.web.application.use_cases.browser_submit import BrowserSubmitUseCase
