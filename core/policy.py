@@ -751,6 +751,19 @@ class Policy:
         }
     )
 
+    #: Tools explicitly denied in scheduled mode (user-approved).
+    #: All browser tools are blocked unattended — even read-level ones —
+    #: because automated browsing can trigger side effects (analytics,
+    #: session creation, rate limits) and the user requires explicit
+    #: approval for any browser interaction.
+    SCHEDULER_DENIED_TOOLS = frozenset(
+        {
+            "browse_page",
+            "browser_fill",
+            "browser_submit",
+        }
+    )
+
     def tool_allowed(self, tool_name: str) -> bool:
         """
         Return True only for explicitly registered policy tools.
@@ -777,6 +790,11 @@ class Policy:
         """
         if not self.scheduled_mode:
             return True
+
+        # Explicit denylist: these tools never run in scheduled mode,
+        # regardless of their permission level or the ceiling.
+        if tool_name in self.SCHEDULER_DENIED_TOOLS:
+            return False
 
         level = self.tool_permissions.get(tool_name)
         order = self.permission_levels

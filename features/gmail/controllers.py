@@ -110,14 +110,44 @@ class GmailReplyController:
         self.gateway = gateway or GmailGateway()
 
     def handle(self, arguments: dict) -> dict:
+        from features.gmail.gateway import (
+            GmailGateway as _GW,
+            get_configured_accounts,
+            _resolve_account,
+        )
         arguments = arguments or {}
         message_id = str(arguments.get("message_id", ""))
         body = arguments.get("body", "")
+        account_arg = arguments.get("account")
         if not message_id:
             return {"ok": False, "error": "message_id مطلوب."}
         if not (body or "").strip():
             return {"ok": False, "error": "نص الرد فارغ."}
-        original = self.gateway.read(message_id)
+        # Resolve which account to read from and send from
+        send_gateway = self.gateway
+        reply_account = None
+        if account_arg is not None:
+            resolved = _resolve_account(account_arg)
+            if not resolved:
+                return {"ok": False, "error": f"الحساب غير موجود: {account_arg}"}
+            send_gateway = _GW(address=resolved[0], app_password=resolved[1])
+            reply_account = resolved[0]
+            original = send_gateway.read(message_id)
+        else:
+            # Find the message across accounts; reply from where it was found
+            accounts = get_configured_accounts()
+            original = None
+            if accounts:
+                for addr, pwd in accounts:
+                    gw = _GW(address=addr, app_password=pwd)
+                    r = gw.read(message_id)
+                    if r.get("ok"):
+                        original = r
+                        send_gateway = gw
+                        reply_account = addr
+                        break
+            if original is None:
+                original = self.gateway.read(message_id)
         if not original.get("ok"):
             return original
         subject = original.get("subject") or ""
@@ -130,12 +160,15 @@ class GmailReplyController:
         m = re.search(r"<([^>]+)>", to)
         if m:
             to = m.group(1)
-        return self.gateway.send(
+        result = send_gateway.send(
             to=to.strip(),
             subject=subject,
             body=body,
             in_reply_to=original.get("uid", ""),
         )
+        if result.get("ok") and reply_account:
+            result["account"] = reply_account
+        return result
 
 
 class GmailSendController:
@@ -143,9 +176,25 @@ class GmailSendController:
         self.gateway = gateway or GmailGateway()
 
     def handle(self, arguments: dict) -> dict:
+        from features.gmail.gateway import (
+            GmailGateway as _GW,
+            _resolve_account,
+        )
         arguments = arguments or {}
-        return self.gateway.send(
+        account_arg = arguments.get("account")
+        gateway = self.gateway
+        used_account = None
+        if account_arg is not None:
+            resolved = _resolve_account(account_arg)
+            if not resolved:
+                return {"ok": False, "error": f"الحساب غير موجود: {account_arg}"}
+            gateway = _GW(address=resolved[0], app_password=resolved[1])
+            used_account = resolved[0]
+        result = gateway.send(
             to=arguments.get("to", ""),
             subject=arguments.get("subject", ""),
             body=arguments.get("body", ""),
         )
+        if result.get("ok") and used_account:
+            result["account"] = used_account
+        return result

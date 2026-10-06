@@ -62,11 +62,18 @@ def build_web_fetch_controller() -> WebFetchController:
     return WebFetchController(use_case)
 
 
+# Module-level singleton: all browser controllers share one runner so that
+# browser_fill -> browser_submit reuse the same Playwright session.
+_SHARED_BROWSER_RUNNER = None
+
+
 def _build_browser_stack():
     """Shared authorization + runner for browser tools."""
+    global _SHARED_BROWSER_RUNNER
     authorization = BrowserAuthorizationAdapter()
-    runner = PlaywrightRunnerAdapter()
-    return authorization, runner
+    if _SHARED_BROWSER_RUNNER is None:
+        _SHARED_BROWSER_RUNNER = PlaywrightRunnerAdapter()
+    return authorization, _SHARED_BROWSER_RUNNER
 
 
 def build_browse_page_controller() -> BrowsePageController:

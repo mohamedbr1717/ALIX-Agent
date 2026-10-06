@@ -540,6 +540,77 @@ TOOLS = [
                 "required": ["to", "body"]
             }
         }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "browse_page",
+            "description": "قراءة صفحة ويب عبر متصفح حقيقي (Playwright/Chromium) — يعالج JavaScript. أداة قراءة فقط.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "الرابط الكامل (http/https فقط)."
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "الحد الأقصى للأحرف (افتراضي 8000)."
+                    }
+                },
+                "required": ["url"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_fill",
+            "description": "تعبئة حقول نموذج في صفحة ويب عبر المتصفح. أداة تنفيذ: تعمل في الوضع التفاعلي فقط حسب Policy.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "رابط الصفحة التي تحتوي النموذج."
+                    },
+                    "fields": {
+                        "type": "object",
+                        "description": "قاموس اسم الحقل -> القيمة المراد تعبئتها.",
+                        "additionalProperties": {"type": "string"}
+                    }
+                },
+                "required": ["url", "fields"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_submit",
+            "description": "الضغط على زر إرسال/تأكيد في صفحة ويب (حجز، شراء، تسجيل). أداة مدمرة: تتطلب موافقة صريحة ولا تعمل في الوضع المجدول.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "رابط الصفحة."
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "محدد CSS لزر الإرسال (اختياري)."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "وصف العملية للتأكيد (اختياري)."
+                    }
+                },
+                "required": ["url"]
+            }
+        }
     }
 
 ]
