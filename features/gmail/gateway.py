@@ -71,6 +71,44 @@ def _body_text(msg) -> str:
         return payload.decode("utf-8", errors="replace")
 
 
+def get_configured_accounts() -> list:
+    """Return list of (address, app_password) for all configured accounts."""
+    import os
+    accounts = []
+    # Account 1 (existing)
+    a1 = os.environ.get("GMAIL_ADDRESS", "").strip()
+    p1 = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    if a1 and p1:
+        accounts.append((a1, p1))
+    # Account 2 (new)
+    a2 = os.environ.get("GMAIL_ADDRESS_2", "").strip()
+    p2 = os.environ.get("GMAIL_APP_PASSWORD_2", "").replace(" ", "")
+    if a2 and p2:
+        accounts.append((a2, p2))
+    return accounts
+
+
+def _resolve_account(account_arg) -> tuple | None:
+    """Resolve account argument to (address, password). None = all/default."""
+    accounts = get_configured_accounts()
+    if not accounts:
+        return None
+    if account_arg is None:
+        return accounts[0]  # default: first account
+    arg = str(account_arg).strip().lower()
+    # By number: 1, 2, "1", "2"
+    if arg in ("1", "2"):
+        idx = int(arg) - 1
+        if 0 <= idx < len(accounts):
+            return accounts[idx]
+        return None
+    # By address (full or prefix match)
+    for addr, pwd in accounts:
+        if addr.lower() == arg or addr.lower().startswith(arg):
+            return (addr, pwd)
+    return None
+
+
 class GmailGateway:
     """Thin IMAP/SMTP wrapper. One instance per operation; no state kept."""
 
