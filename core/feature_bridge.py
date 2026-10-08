@@ -165,3 +165,48 @@ def build_run_due_tasks_use_case(
         clock=clock,
         audit_fn=audit_fn,
     )
+
+
+def build_voice_transcribe_controller():
+    """Voice transcription controller for telegram_bot.py (via the bridge)."""
+    from features.voice.composition import (
+        build_voice_transcribe_controller as _build,
+    )
+
+    return _build()
+
+
+def build_gmail_search_controller():
+    """Gmail search controller for telegram_bot.py (via the bridge)."""
+    from features.gmail.composition import (
+        build_gmail_search_controller as _build,
+    )
+
+    return _build()
+
+
+def build_gmail_read_controller():
+    """Gmail read controller for telegram_bot.py (via the bridge)."""
+    from features.gmail.composition import (
+        build_gmail_read_controller as _build,
+    )
+
+    return _build()
+
+
+def build_gmail_reply_controller():
+    """Gmail reply controller for telegram_bot.py (via the bridge)."""
+    from features.gmail.composition import (
+        build_gmail_reply_controller as _build,
+    )
+
+    return _build()
+
+
+def build_gmail_send_controller():
+    """Gmail send controller for telegram_bot.py (via the bridge)."""
+    from features.gmail.composition import (
+        build_gmail_send_controller as _build,
+    )
+
+    return _build()
