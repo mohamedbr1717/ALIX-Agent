@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from core.secret_scrub import SENSITIVE_KEYS as _UNIFIED_SENSITIVE_KEYS
+from core.secret_scrub import scrub_value as _scrub_value
+
 
 class ObservabilityLogger:
     """
@@ -23,16 +26,8 @@ class ObservabilityLogger:
     لا يقوم هذا الإصدار بعد بدمج Merkle integrity.
     """
 
-    SENSITIVE_KEYS = {
-        "api_key",
-        "apikey",
-        "authorization",
-        "cookie",
-        "credential",
-        "password",
-        "secret",
-        "token",
-    }
+    # Unified in core/secret_scrub.py (single source of truth).
+    SENSITIVE_KEYS = _UNIFIED_SENSITIVE_KEYS
 
     def __init__(
         self,
@@ -81,37 +76,11 @@ class ObservabilityLogger:
 
         يمنع تسجيل الأسرار حتى لو كانت داخل:
         dict -> list -> dict -> ...
+        Delegates to core/secret_scrub (single source of truth).
         """
-
-        if key is not None:
-            normalized_key = key.lower().replace("-", "_")
-            if normalized_key in self.SENSITIVE_KEYS:
-                return "[REDACTED]"
-
-        if isinstance(value, dict):
-            return {
-                str(k): self.sanitize(v, key=str(k))
-                for k, v in value.items()
-            }
-
-        if isinstance(value, (list, tuple, set)):
-            return [
-                self.sanitize(item)
-                for item in value
-            ]
-
-        if isinstance(value, str):
-            if len(value) > self.max_value_length:
-                return (
-                    value[: self.max_value_length]
-                    + "...[TRUNCATED]"
-                )
-            return value
-
-        if isinstance(value, (int, float, bool)) or value is None:
-            return value
-
-        return str(value)
+        return _scrub_value(
+            value, key=key, max_value_length=self.max_value_length
+        )
 
     def emit(
         self,

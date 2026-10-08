@@ -10,6 +10,9 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from core.secret_scrub import SECRET_PATTERNS as _UNIFIED_PATTERNS
+from core.secret_scrub import scrub_text as _scrub_text
+
 
 class Memory:
     """
@@ -118,43 +121,12 @@ class Memory:
     # secrets that don't match a known shape will still pass through.
     # It reduces the common, high-confidence cases (cloud keys, private
     # key blocks, bearer tokens, "password=..." style assignments).
-    _SECRET_PATTERNS = [
-        # AWS access key IDs
-        (re.compile(r"AKIA[0-9A-Z]{16}"), "[REDACTED_AWS_KEY]"),
-        # OpenAI / Anthropic / generic vendor "sk-..." style keys
-        (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED_API_KEY]"),
-        # GitHub tokens
-        (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "[REDACTED_GITHUB_TOKEN]"),
-        # PEM-style private key blocks
-        (
-            re.compile(
-                r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
-                re.DOTALL,
-            ),
-            "[REDACTED_PRIVATE_KEY]",
-        ),
-        # Bearer / JWT-style tokens
-        (re.compile(r"\bBearer\s+[A-Za-z0-9._-]{16,}\b"), "Bearer [REDACTED_TOKEN]"),
-        (
-            re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
-            "[REDACTED_JWT]",
-        ),
-        # key/secret/password/token = value assignments (common in
-        # .env-style pasted config)
-        (
-            re.compile(
-                r"(?i)\b(api[_-]?key|secret|password|passwd|token)\b\s*[:=]\s*"
-                r"['\"]?[A-Za-z0-9/+._-]{8,}['\"]?"
-            ),
-            r"\1=[REDACTED]",
-        ),
-    ]
+    # Unified in core/secret_scrub.py (single source of truth).
+    _SECRET_PATTERNS = _UNIFIED_PATTERNS
 
     @classmethod
     def _redact_secrets(cls, text: str) -> str:
-        for pattern, replacement in cls._SECRET_PATTERNS:
-            text = pattern.sub(replacement, text)
-        return text
+        return _scrub_text(text)
 
     def _sanitize_text(
         self,

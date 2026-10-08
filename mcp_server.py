@@ -65,6 +65,7 @@ from core.memory import Memory
 from core.policy import Policy
 from core.registry import ToolRegistry
 from core.plan_signer import verify_token
+from core.observability import ObservabilityLogger
 
 # Optional: full agent (needs the ``openai`` package + API key).
 # The MCP tools below do NOT need it, so the server stays usable
@@ -250,9 +251,25 @@ class ALIXMCPServer:
         # can trivially assert `confirmed: true`, so destructive tools
         # (those requiring confirmation) are hidden and denied unless
         # the operator explicitly opts in. Fail-closed by default.
+        #
+        # IMPORTANT: ALIX_MCP_ALLOW_DESTRUCTIVE=1 does NOT grant blanket
+        # destructive access — it only enables the HMAC token path, and
+        # every destructive call still requires a per-call
+        # confirmation_token minted offline via
+        # `python3 -m core.plan_signer --tools <names> --ttl <s>`.
+        # Every destructive MCP execution is audit-logged
+        # (event "mcp.destructive_call") — an untrusted entry point
+        # must never be a black box (point 7).
         self.allow_destructive = os.environ.get(
             "ALIX_MCP_ALLOW_DESTRUCTIVE", "").lower() in (
                 "1", "true", "yes")
+        # Audit every MCP tool call (point 8: untrusted entry point
+        # must leave a trace). Fail-open on logger errors: audit must
+        # never break tool dispatch.
+        try:
+            self.obs = ObservabilityLogger()
+        except Exception:
+            self.obs = None
         # Seed a context fact so memory search has something meaningful.
         try:
             self.memory.add_fact("ALIX MCP server uses core policy AST screening")
@@ -425,7 +442,26 @@ class ALIXMCPServer:
                     }
                 # Policy-gated dispatch; returns the canonical
                 # ExecutionResult dict (ok/action/message/...).
+                is_destructive = self.policy.requires_confirmation(
+                    tool_name
+                )
                 result = self.registry.execute(tool_name, args)
+                if is_destructive and self.obs is not None:
+                    try:
+                        self.obs.emit(
+                            "mcp.destructive_call",
+                            {
+                                "tool": tool_name,
+                                "arguments": args,
+                                "ok": result.get("ok"),
+                                "hmac_verified": True,
+                            },
+                            status=(
+                                "ok" if result.get("ok") else "failed"
+                            ),
+                        )
+                    except Exception:
+                        pass
                 return self._ok(msg_id, self._text_result(result))
 
             return self._err(

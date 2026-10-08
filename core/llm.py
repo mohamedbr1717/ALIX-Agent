@@ -10,6 +10,8 @@ import urllib.error
 import urllib.request
 from typing import Any, Optional
 
+from core.secret_scrub import scrub_literal as _scrub_literal
+
 from openai import OpenAI
 
 
@@ -743,17 +745,8 @@ class HybridLLM:
         # منع ظهور المفتاح في الرسائل.
         # يعتمد على المفتاح المخزن داخل HybridLLM
         # وليس على os.environ.
-        sensitive = [
-            self.api_key or ""
-        ]
-
-        for secret in sensitive:
-
-            if secret:
-                text = text.replace(
-                    secret,
-                    "***REDACTED***"
-                )
+        # Unified in core/secret_scrub.py (single source of truth).
+        text = _scrub_literal(text, [self.api_key or ""])
 
         return text[:1000]
 
