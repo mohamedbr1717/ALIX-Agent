@@ -28,7 +28,7 @@ class TestSchemaHandlerParity(unittest.TestCase):
         """Parse TOOLS schema via AST (avoids importing core.agent's deps)."""
         import ast
         from pathlib import Path
-        src = Path("core/agent.py").read_text(encoding="utf-8")
+        src = Path("core/agent/prompts.py").read_text(encoding="utf-8")
         tree = ast.parse(src)
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
