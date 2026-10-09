@@ -1,9 +1,11 @@
 """ALIXAgent _ToolPipelineMixin (private)."""
 from __future__ import annotations
 
+import json
 import time
 
 from core.prompt_guard import guard_tool_output
+from core.feature_bridge import build_migrated_tool_handlers
 class _ToolPipelineMixin:
     """Methods moved verbatim."""
 
