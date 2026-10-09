@@ -113,7 +113,7 @@ def build_migrated_tool_handlers(
     gmail_reply_controller = build_gmail_reply_controller()
     gmail_send_controller = build_gmail_send_controller()
 
-    return {
+    handlers = {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
         "delete_file": lambda **kwargs: delete_file_controller.handle(kwargs),
         "list_files": lambda **kwargs: list_files_controller.handle(kwargs),
@@ -164,6 +164,8 @@ def build_migrated_tool_handlers(
     handlers["_history_mark_undone"] = history_controllers[
         "log_action"
     ]._store.mark_undone
+
+    return handlers
 
 
 def build_task_store(path=None):
