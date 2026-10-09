@@ -460,7 +460,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "calendar_list",
-            "description": "عرض مواعيد التقويم (Google Calendar) في نطاق زمني. أداة قراءة فقط (لا تحتاج موافقة). الأوقات بصيغة ISO-8601.",
+            "description": "عرض مواعيد التقويم (Google Calendar) في نطاق زمني. أداة قراءة فقط (لا تحتاج موافقة). الأوقات بصيغة ISO-8601 مع +01:00 (Africa/Casablanca).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -486,7 +486,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "calendar_add",
-            "description": "إنشاء موعد في التقويم. عندما يطلب المستخدم تذكيرًا أو موعدًا بوقت محدد، استدعها مباشرة بالأوقات ISO-8601. قابلة للعكس (يمكن حذفها لاحقًا).",
+            "description": "إنشاء موعد في التقويم. عندما يطلب المستخدم تذكيرًا أو موعدًا بوقت محدد، استدعها مباشرة بالأوقات ISO-8601 مع المنطقة الزمنية Africa/Casablanca (+01:00) دائمًا — مثال: 2026-10-10T15:00:00+01:00. لا تستخدم UTC أبدًا. قابلة للعكس (يمكن حذفها لاحقًا).",
             "parameters": {
                 "type": "object",
                 "properties": {
