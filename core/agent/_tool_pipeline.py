@@ -289,6 +289,48 @@ class _ToolPipelineMixin:
             else:
                 final_status = "failure"
 
+            # History logging (fire-and-forget; never breaks execution).
+            try:
+                self._log_history_action(name, arguments, result)
+            except Exception:
+                pass
+
+            # Undo: execute the inverse operation directly.
+            # The user already confirmed the undo (destructive); the
+            # inverse runs without a second confirmation as part of
+            # the same approved intent.
+            if name == "undo" and result.get("ok"):
+                undone = result.get("undone_action")
+                if undone and undone.get("inverse"):
+                    inverse = undone["inverse"]
+                    inv_tool = inverse.get("tool", "")
+                    inv_args = inverse.get("arguments", {})
+                    if inv_tool and self.policy.tool_allowed(inv_tool):
+                        inv_result = self._execute_tool_body(
+                            inv_tool, inv_args
+                        )
+                        # Mark the original action as undone.
+                        try:
+                            handlers = (
+                                self._ensure_migrated_handlers()
+                            )
+                            mark_fn = handlers.get(
+                                "_history_mark_undone"
+                            )
+                            if mark_fn:
+                                mark_fn(undone.get("index", 0))
+                        except Exception:
+                            pass
+                        if inv_result.get("ok"):
+                            result["message"] = (
+                                f"تم التراجع: {undone['original'].get('summary', inv_tool)}"
+                            )
+                        else:
+                            result["ok"] = False
+                            result["message"] = (
+                                f"فشل التراجع: {inv_result.get('error', 'خطأ غير معروف')}"
+                            )
+
             return result
 
         except Exception as exc:
@@ -328,6 +370,58 @@ class _ToolPipelineMixin:
                 ) * 1000.0,
             )
 
+
+    def _log_history_action(
+        self,
+        name: str,
+        arguments: dict,
+        result: dict,
+    ) -> None:
+        """Log a tool execution to user-facing history (best-effort).
+
+        Skips the history/undo tools themselves to avoid recursion.
+        Uses only the feature_bridge handlers (no direct feature imports).
+        """
+        if name in ("history", "undo", "_history_log"):
+            return
+        try:
+            handlers = self._ensure_migrated_handlers()
+            logger = handlers.get("_history_log")
+            inverse_fn = handlers.get("_history_inverse")
+            summarize_fn = handlers.get("_history_summarize")
+            if logger is None:
+                return
+            # Redact arguments via policy (never store secrets).
+            safe_args = {}
+            try:
+                allowed = self.policy.tool_arguments(name).get(
+                    "allowed", set()
+                )
+                for key in allowed:
+                    if key in arguments:
+                        safe_args[key] = arguments[key]
+            except Exception:
+                safe_args = {}
+            inverse = None
+            summary = name
+            try:
+                if inverse_fn:
+                    inverse = inverse_fn(name, safe_args, result)
+                if summarize_fn:
+                    summary = summarize_fn(name, safe_args, result)
+            except Exception:
+                pass
+            logger.execute(
+                {
+                    "tool_name": name,
+                    "arguments": safe_args,
+                    "ok": bool(result.get("ok")),
+                    "summary": summary,
+                    "inverse": inverse,
+                }
+            )
+        except Exception:
+            pass
 
     def _ensure_migrated_handlers(self):
         """تهيئة handlers المُهاجرة مرة واحدة عند الحاجة.

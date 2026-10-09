@@ -132,6 +132,14 @@ class _ConfigMixin:
                 "allowed": {"event_id"},
                 "required": {"event_id"},
             },
+            "history": {
+                "allowed": {"limit"},
+                "required": set(),
+            },
+            "undo": {
+                "allowed": set(),
+                "required": set(),
+            },
             "repo_map": {
                 "allowed": {"root", "max_depth", "max_entries"},
                 "required": set(),
@@ -190,6 +198,8 @@ class _ConfigMixin:
             "calendar_list": "read",
             "calendar_add": "execute",
             "calendar_delete": "destructive",
+            "history": "read",
+            "undo": "destructive",
         }
 
         # =========================================================

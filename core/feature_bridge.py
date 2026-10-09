@@ -65,6 +65,7 @@ def build_migrated_tool_handlers(
         build_resolve_contact_controller,
     )
     from features.calendar.composition import build_calendar_controllers
+    from features.history.composition import build_history_controllers
     from features.repo_context.composition import (
         build_pack_context_controller,
         build_repo_map_controller,
@@ -103,6 +104,7 @@ def build_migrated_tool_handlers(
     notify_controller = build_notify_controller(policy)
     resolve_contact_controller = build_resolve_contact_controller(policy)
     calendar_controllers = build_calendar_controllers(policy)
+    history_controllers = build_history_controllers(policy)
     repo_map_controller = build_repo_map_controller(policy)
     search_code_controller = build_search_code_controller(policy)
     pack_context_controller = build_pack_context_controller(policy)
@@ -146,7 +148,22 @@ def build_migrated_tool_handlers(
         "calendar_list": lambda **kwargs: calendar_controllers["calendar_list"].handle(kwargs),
         "calendar_add": lambda **kwargs: calendar_controllers["calendar_add"].handle(kwargs),
         "calendar_delete": lambda **kwargs: calendar_controllers["calendar_delete"].handle(kwargs),
+        "history": lambda **kwargs: history_controllers["history"].handle(kwargs),
+        "undo": lambda **kwargs: history_controllers["undo"].handle(kwargs),
     }
+
+    # History logging hook for the agent.
+    handlers["_history_log"] = history_controllers["log_action"]
+    # Inverse computation + store access (keeps core free of feature imports).
+    from features.history.inverse import (
+        compute_inverse as _compute_inverse,
+        summarize_action as _summarize_action,
+    )
+    handlers["_history_inverse"] = _compute_inverse
+    handlers["_history_summarize"] = _summarize_action
+    handlers["_history_mark_undone"] = history_controllers[
+        "log_action"
+    ]._store.mark_undone
 
 
 def build_task_store(path=None):

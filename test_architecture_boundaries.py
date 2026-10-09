@@ -57,6 +57,8 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     ("core/feature_bridge.py", "features.voice.composition"),
     ("core/feature_bridge.py", "features.contacts.composition"),
     ("core/feature_bridge.py", "features.calendar.composition"),
+    ("core/feature_bridge.py", "features.history.composition"),
+    ("core/feature_bridge.py", "features.history.inverse"),
     ("core/feature_bridge.py", "features.repo_context.composition"),
     (
         "core/feature_bridge.py",

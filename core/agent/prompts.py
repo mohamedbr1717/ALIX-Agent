@@ -533,6 +533,37 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "history",
+            "description": "عرض سجل إجراءات الوكيل الأخيرة (قراءة فقط). يظهر الأدوات المنفذة مع الوقت والحالة وما إذا كانت قابلة للتراجع.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "عدد الإجراءات (افتراضي 10، أقصى 30)."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "undo",
+            "description": "التراجع عن آخر إجراء قابل للعكس (مثل حذف موعد أُضيف). عملية مدمرة — تتطلب موافقة صريحة. لا يمكن التراجع عن المكالمات أو الرسائل المرسلة.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "notify",
             "description": "عرض تنبيه على شاشة الهاتف عبر Termux:API. أداة قراءة فقط (لا تحتاج موافقة) — لتنبيه المستخدم.",
             "parameters": {
