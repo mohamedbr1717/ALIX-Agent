@@ -54,6 +54,12 @@ class _ToolPipelineMixin:
 
         level = self.policy.tool_permission(name)
 
+        # External confirmer hook (e.g. Telegram Confirmer): if set,
+        # delegate the decision instead of console input.
+        confirm_fn = getattr(self, "confirm_fn", None)
+        if callable(confirm_fn):
+            return bool(confirm_fn(name, arguments, level))
+
         print()
         print("⚠️ ALIX يطلب موافقة للتنفيذ")
         print(f"الأداة: {self._safe_display(name)}")
