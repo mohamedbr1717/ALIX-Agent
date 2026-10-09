@@ -620,7 +620,7 @@ class HybridLLM:
     def __init__(
         self,
         use_remote: bool = True,
-        max_retries: int = 2
+        max_retries: int = 3
     ):
 
         self.use_remote = bool(
@@ -871,8 +871,8 @@ class HybridLLM:
                             delay = min(wait, 30)
                         else:
                             delay = min(
-                                2 ** attempt,
-                                5
+                                2 ** (attempt + 1),
+                                10
                             )
 
                         time.sleep(delay)
