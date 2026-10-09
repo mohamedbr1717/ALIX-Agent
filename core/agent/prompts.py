@@ -441,6 +441,24 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "resolve_contact",
+            "description": "حل اسم جهة اتصال إلى رقم هاتف من دفتر الهاتف. أداة قراءة فقط (لا تحتاج موافقة). عند الغموض تُرجع المرشحين دون تخمين.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "اسم جهة الاتصال (يدعم التطبيع العربي: أحمد=احمد)."
+                    }
+                },
+                "required": ["name"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "notify",
             "description": "عرض تنبيه على شاشة الهاتف عبر Termux:API. أداة قراءة فقط (لا تحتاج موافقة) — لتنبيه المستخدم.",
             "parameters": {

@@ -61,6 +61,9 @@ def build_migrated_tool_handlers(
         build_phone_call_controller,
         build_send_sms_controller,
     )
+    from features.contacts.composition import (
+        build_resolve_contact_controller,
+    )
     from features.repo_context.composition import (
         build_pack_context_controller,
         build_repo_map_controller,
@@ -97,6 +100,7 @@ def build_migrated_tool_handlers(
     phone_call_controller = build_phone_call_controller(policy)
     send_sms_controller = build_send_sms_controller(policy)
     notify_controller = build_notify_controller(policy)
+    resolve_contact_controller = build_resolve_contact_controller(policy)
     repo_map_controller = build_repo_map_controller(policy)
     search_code_controller = build_search_code_controller(policy)
     pack_context_controller = build_pack_context_controller(policy)
@@ -136,6 +140,7 @@ def build_migrated_tool_handlers(
         "phone_call": lambda **kwargs: phone_call_controller.handle(kwargs),
         "send_sms": lambda **kwargs: send_sms_controller.handle(kwargs),
         "notify": lambda **kwargs: notify_controller.handle(kwargs),
+        "resolve_contact": lambda **kwargs: resolve_contact_controller.handle(kwargs),
     }
 
 

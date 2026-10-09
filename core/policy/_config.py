@@ -116,6 +116,10 @@ class _ConfigMixin:
                 "allowed": {"title", "content"},
                 "required": {"content"},
             },
+            "resolve_contact": {
+                "allowed": {"name"},
+                "required": {"name"},
+            },
             "repo_map": {
                 "allowed": {"root", "max_depth", "max_entries"},
                 "required": set(),
@@ -170,6 +174,7 @@ class _ConfigMixin:
             "phone_call": "destructive",
             "send_sms": "destructive",
             "notify": "read",
+            "resolve_contact": "read",
         }
 
         # =========================================================
