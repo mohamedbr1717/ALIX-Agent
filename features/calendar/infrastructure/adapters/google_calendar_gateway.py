@@ -27,6 +27,12 @@ class GoogleCalendarGateway:
     """CalendarGateway backed by Google Calendar API v3."""
 
     def __init__(self) -> None:
+        self._ensure_env()
+        self._access_token = ""
+        self._token_expiry = 0.0
+
+    def _ensure_env(self) -> None:
+        """Load credentials from os.environ, falling back to .env file."""
         self._client_id = os.environ.get("GOOGLE_CALENDAR_CLIENT_ID", "")
         self._client_secret = os.environ.get(
             "GOOGLE_CALENDAR_CLIENT_SECRET", ""
@@ -34,8 +40,24 @@ class GoogleCalendarGateway:
         self._refresh_token = os.environ.get(
             "GOOGLE_CALENDAR_REFRESH_TOKEN", ""
         )
-        self._access_token = ""
-        self._token_expiry = 0.0
+        if not (self._client_id and self._client_secret and self._refresh_token):
+            # telegram_bot.py loads .env lazily; try it here too.
+            try:
+                from dotenv import load_dotenv
+                from pathlib import Path
+
+                load_dotenv(Path.home() / "ALIX-Agent" / ".env")
+                self._client_id = os.environ.get(
+                    "GOOGLE_CALENDAR_CLIENT_ID", ""
+                )
+                self._client_secret = os.environ.get(
+                    "GOOGLE_CALENDAR_CLIENT_SECRET", ""
+                )
+                self._refresh_token = os.environ.get(
+                    "GOOGLE_CALENDAR_REFRESH_TOKEN", ""
+                )
+            except Exception:
+                pass
 
     # ----------------------------------------------------------
     # Configuration
