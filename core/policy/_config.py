@@ -120,6 +120,18 @@ class _ConfigMixin:
                 "allowed": {"name"},
                 "required": {"name"},
             },
+            "calendar_list": {
+                "allowed": {"time_min", "time_max", "max_results"},
+                "required": {"time_min", "time_max"},
+            },
+            "calendar_add": {
+                "allowed": {"title", "start", "end", "description", "timezone"},
+                "required": {"title", "start", "end"},
+            },
+            "calendar_delete": {
+                "allowed": {"event_id"},
+                "required": {"event_id"},
+            },
             "repo_map": {
                 "allowed": {"root", "max_depth", "max_entries"},
                 "required": set(),
@@ -175,6 +187,9 @@ class _ConfigMixin:
             "send_sms": "destructive",
             "notify": "read",
             "resolve_contact": "read",
+            "calendar_list": "read",
+            "calendar_add": "execute",
+            "calendar_delete": "destructive",
         }
 
         # =========================================================

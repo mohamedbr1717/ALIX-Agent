@@ -459,6 +459,80 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "calendar_list",
+            "description": "عرض مواعيد التقويم (Google Calendar) في نطاق زمني. أداة قراءة فقط (لا تحتاج موافقة). الأوقات بصيغة ISO-8601.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "time_min": {
+                        "type": "string",
+                        "description": "بداية النطاق (ISO-8601، مثال: 2026-10-10T00:00:00+01:00)."
+                    },
+                    "time_max": {
+                        "type": "string",
+                        "description": "نهاية النطاق (ISO-8601)."
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "أقصى عدد (افتراضي 20)."
+                    }
+                },
+                "required": ["time_min", "time_max"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "calendar_add",
+            "description": "إنشاء موعد في التقويم. عندما يطلب المستخدم تذكيرًا أو موعدًا بوقت محدد، استدعها مباشرة بالأوقات ISO-8601. قابلة للعكس (يمكن حذفها لاحقًا).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "عنوان الموعد."
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "وقت البدء (ISO-8601 مع المنطقة، مثال: 2026-10-10T15:00:00+01:00)."
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "وقت النهاية (ISO-8601)."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "وصف اختياري."
+                    }
+                },
+                "required": ["title", "start", "end"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "calendar_delete",
+            "description": "حذف موعد من التقويم بواسطة معرفه. عملية مدمرة — تتطلب موافقة صريحة.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "string",
+                        "description": "معرف الموعد (من calendar_list)."
+                    }
+                },
+                "required": ["event_id"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "notify",
             "description": "عرض تنبيه على شاشة الهاتف عبر Termux:API. أداة قراءة فقط (لا تحتاج موافقة) — لتنبيه المستخدم.",
             "parameters": {

@@ -64,6 +64,7 @@ def build_migrated_tool_handlers(
     from features.contacts.composition import (
         build_resolve_contact_controller,
     )
+    from features.calendar.composition import build_calendar_controllers
     from features.repo_context.composition import (
         build_pack_context_controller,
         build_repo_map_controller,
@@ -101,6 +102,7 @@ def build_migrated_tool_handlers(
     send_sms_controller = build_send_sms_controller(policy)
     notify_controller = build_notify_controller(policy)
     resolve_contact_controller = build_resolve_contact_controller(policy)
+    calendar_controllers = build_calendar_controllers(policy)
     repo_map_controller = build_repo_map_controller(policy)
     search_code_controller = build_search_code_controller(policy)
     pack_context_controller = build_pack_context_controller(policy)
@@ -141,6 +143,9 @@ def build_migrated_tool_handlers(
         "send_sms": lambda **kwargs: send_sms_controller.handle(kwargs),
         "notify": lambda **kwargs: notify_controller.handle(kwargs),
         "resolve_contact": lambda **kwargs: resolve_contact_controller.handle(kwargs),
+        "calendar_list": lambda **kwargs: calendar_controllers["calendar_list"].handle(kwargs),
+        "calendar_add": lambda **kwargs: calendar_controllers["calendar_add"].handle(kwargs),
+        "calendar_delete": lambda **kwargs: calendar_controllers["calendar_delete"].handle(kwargs),
     }
 
 
