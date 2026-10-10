@@ -205,6 +205,8 @@ class RunDueTasksUseCase:
             result_text = self._executor.execute_task(
                 task.prompt,
                 task.allow,
+                task_id=task.id,
+                task_name=task.name,
             )
             success = True
         except Exception as exc:

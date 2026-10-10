@@ -14,9 +14,12 @@ Or auto-start on boot with Termux:Boot
 Notes:
 - One daemon only: a pid file refuses a second instance.
 - Every tick (60s) due tasks run in a FRESH agent with
-  scheduled_mode policy: destructive tools are never allowed
-  unattended (fail-closed); other tools only up to the ceiling
-  the task was granted at schedule time ("allow").
+  scheduled_mode policy: destructive tools suspend for a 180s Telegram
+  approval window (escalation path ب) instead of running unattended —
+  never executed without explicit approval; on 180s of silence the
+  request is finally cancelled (skip + history log + user notify).
+  Other tools only up to the ceiling the task was granted at schedule
+  time ("allow").
 - Results append to scheduler/runs.log (JSON lines).
 - Android Doze: after sleep, overdue tasks run once (catch-up)
   unless older than max_lateness_hours, then marked missed.
@@ -60,10 +63,18 @@ class AgentTaskExecutor:
         self,
         prompt: str,
         allow: str,
+        task_id: str | None = None,
+        task_name: str | None = None,
     ) -> str:
         agent = ALIXAgent()
         agent.policy.scheduled_mode = True
         agent.policy.scheduled_allow = allow
+        # Carried so the scheduled-approval queue can name the task
+        # on the Telegram approval card.
+        if task_id is not None:
+            agent.scheduled_task_id = task_id
+        if task_name is not None:
+            agent.scheduled_task_name = task_name
 
         try:
             return agent.run(prompt)

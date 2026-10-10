@@ -21,24 +21,32 @@ class _ToolPipelineMixin:
         if getattr(
             self.policy, "scheduled_mode", False
         ):
-            # لا يوجد مستخدم للتأكيد في المهام المجدولة:
-            # القرار هو السقف المصرَّح به مسبقًا عند الجدولة.
+            # Scheduled mode: the pre-authorized ceiling applies first.
+            # Destructive tools are NOT hard-rejected: they escalate to a
+            # 180-second Telegram approval window (path ب). A tool NEVER
+            # executes without explicit approval.
             permitted = (
                 self.policy.scheduled_tool_permitted(
                     name
                 )
             )
 
-            if not permitted:
+            if permitted:
+                return True
+
+            level = self.policy.tool_permission(name)
+
+            if (
+                name in self.policy.SCHEDULER_DENIED_TOOLS
+                or level != "destructive"
+            ):
+                # Hard denylist, or non-destructive over the ceiling:
+                # deny outright, no escalation.
                 self.audit(
                     "scheduled_tool_denied",
                     {
                         "tool": name,
-                        "permission": (
-                            self.policy.tool_permission(
-                                name
-                            )
-                        ),
+                        "permission": level,
                         "allowed": getattr(
                             self.policy,
                             "scheduled_allow",
@@ -46,8 +54,11 @@ class _ToolPipelineMixin:
                         ),
                     },
                 )
+                return False
 
-            return permitted
+            return self._scheduled_destructive_approval(
+                name, arguments
+            )
 
         if not self.policy.requires_confirmation(name):
             return True
@@ -105,6 +116,86 @@ class _ToolPipelineMixin:
         )
 
         return approved
+
+
+    def _scheduled_destructive_approval(
+        self,
+        name: str,
+        arguments: dict,
+    ) -> bool:
+        """Escalation path (ب): suspend a scheduled destructive tool for a
+        180-second Telegram approval window.
+
+        Approval → True (the tool executes). Denial or 180s of silence →
+        FINAL cancel: the request is archived, the cancellation is written
+        to history, the user is notified, and False is returned.
+        Fail-closed: any queue error also denies.
+        """
+        from core import scheduled_approval as sa
+
+        try:
+            req = sa.request_approval(
+                task_id=getattr(self, "scheduled_task_id", None),
+                task_name=getattr(self, "scheduled_task_name", None),
+                tool_name=name,
+                arguments=arguments,
+                level=self.policy.tool_permission(name),
+            )
+        except Exception:
+            self.audit(
+                "scheduled_approval_error",
+                {"tool": name, "reason": "request_failed"},
+            )
+            return False
+
+        self.audit(
+            "scheduled_approval_requested",
+            {"tool": name, "approval_id": req["id"]},
+        )
+
+        verdict = sa.await_verdict(req["id"])
+
+        if verdict and verdict.get("approved") is True:
+            self.audit(
+                "scheduled_approval_granted",
+                {"tool": name, "approval_id": req["id"]},
+            )
+            return True
+
+        reason = (
+            "رفض المستخدم الطلب"
+            if verdict
+            else "انتهت مهلة الموافقة (180 ثانية) دون رد"
+        )
+        sa.expire_request(req["id"], reason)
+        self.audit(
+            "scheduled_approval_cancelled",
+            {
+                "tool": name,
+                "approval_id": req["id"],
+                "reason": reason,
+            },
+        )
+        # History: the cancellation itself is a user-facing event.
+        # (No inverse is computed: nothing executed, nothing to undo.)
+        try:
+            self._log_history_action(
+                name,
+                arguments,
+                {
+                    "ok": False,
+                    "cancelled": True,
+                    "message": f"المهمة أُلغيت: {reason}",
+                },
+            )
+        except Exception:
+            pass
+        # Notify the user (the Telegram bot delivers the outbox).
+        try:
+            sa.notify_user(f"المهمة أُلغيت: {name} — {reason}")
+        except Exception:
+            pass
+        return False
 
 
     def _wrap_untrusted_tool_output(
@@ -323,7 +414,7 @@ class _ToolPipelineMixin:
                             pass
                         if inv_result.get("ok"):
                             result["message"] = (
-                                f"تم التراجع: {undone['original'].get('summary', inv_tool)}"
+                                f"المهمة أُلغيت: {undone['original'].get('summary', inv_tool)}"
                             )
                         else:
                             result["ok"] = False
