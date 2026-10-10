@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#
+# ALIX-Agent pre-commit secret guard.
+#
+# Blocks commits that stage secret material:
+#   1. secret FILENAMES (.env, *.pem, *.key, kaggle.json, ...) — always blocked
+#   2. secret CONTENT (private keys, high-confidence token formats,
+#      KEY=<long-value> assignments) — blocked except in test fixtures
+#
+# Defense in depth: .gitignore + "never git add ." remain the primary guards.
+# This hook is the last local gate before a commit is created.
+#
+# Install (per clone — .git/hooks is not versioned):
+#   cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Design notes:
+# - Test files (test_*.py, tests/) are exempt from CONTENT scanning because the
+#   security-guarantee tests legitimately embed fake key fixtures. Secret
+#   FILENAMES are still blocked everywhere, including tests/.
+# - This hook's own directory (scripts/git-hooks/) is exempt from content
+#   scanning (it contains the patterns as strings).
+# - Placeholder values (xxx, your-key, os.environ, ...) never trigger.
+# - Fail-closed on DETECTION, fail-open on TOOL ERROR: if the hook itself
+#   breaks it warns and allows the commit rather than blocking all work.
+
+set -u
+
+BLOCKED=0
+
+# --- 1) secret filenames (matched against basename) ---
+is_secret_filename() {
+    case "$(basename "$1")" in
+        .env|.env.*)                 return 0 ;;
+        *.pem|*.key|*.p12|*.pfx)    return 0 ;;
+        kaggle.json)                return 0 ;;
+        *credentials*.json)         return 0 ;;
+        *secret*.json|*secrets*.json) return 0 ;;
+        id_rsa*|id_ed25519*|id_ecdsa*) return 0 ;;
+        *)                          return 1 ;;
+    esac
+}
+
+# --- 2) content scanning exemptions ---
+is_content_exempt() {
+    case "$1" in
+        scripts/git-hooks/*) return 0 ;;
+        test_*.py|*_test.py|tests/*) return 0 ;;
+        */test_*.py|*/tests/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# High-confidence token formats.
+CONTENT_RES=(
+    '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'
+    'gh[pousr]_[A-Za-z0-9]{36}'
+    'AKIA[0-9A-Z]{16}'
+    'xox[bpas]-[A-Za-z0-9-]{10,}'
+    'AIza[0-9A-Za-z_-]{35}'
+)
+
+# Generic KEY=<value> assignments; placeholders excluded separately.
+GENERIC_RE='(api[_-]?key|app[_-]?password|client[_-]?secret|refresh[_-]?token|password|passwd|secret)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9_./+=-]{12,}'
+PLACEHOLDER_RE='xxx+|\*{3,}|your[-_]|example|changeme|placeholder|dummy|fake|test[-_]?key|os\.environ|getenv|input\(|<[^>]*>|\$\{'
+
+staged="$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)" || {
+    echo "pre-commit secret guard: cannot list staged files — allowing (hook degraded)" >&2
+    exit 0
+}
+[ -z "$staged" ] && exit 0
+
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+
+    if is_secret_filename "$f"; then
+        echo "BLOCKED: secret filename staged: $f" >&2
+        BLOCKED=1
+        continue
+    fi
+
+    if is_content_exempt "$f"; then
+        continue
+    fi
+
+    # Size cap: skip content scan for files > 1 MiB (filenames already checked).
+    size="$(git cat-file -s ":$f" 2>/dev/null || echo 0)"
+    if [ "$size" -gt 1048576 ] 2>/dev/null; then
+        continue
+    fi
+
+    for re in "${CONTENT_RES[@]}"; do
+        if git show ":$f" 2>/dev/null | grep -I -Eq -- "$re"; then
+            echo "BLOCKED: secret pattern in staged file: $f" >&2
+            BLOCKED=1
+            break
+        fi
+    done
+    [ "$BLOCKED" -eq 1 ] && continue
+
+    if git show ":$f" 2>/dev/null | grep -I -Ei "$GENERIC_RE" \
+        | grep -I -Evi "$PLACEHOLDER_RE" | grep -q .; then
+        echo "BLOCKED: possible secret assignment in staged file: $f" >&2
+        BLOCKED=1
+    fi
+done <<< "$staged"
+
+if [ "$BLOCKED" -eq 1 ]; then
+    echo "pre-commit secret guard: commit rejected — remove secret material and retry." >&2
+    exit 1
+fi
+exit 0
