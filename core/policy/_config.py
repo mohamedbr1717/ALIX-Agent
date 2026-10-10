@@ -152,6 +152,53 @@ class _ConfigMixin:
                 "allowed": {"root", "focus", "max_tokens", "max_files"},
                 "required": set(),
             },
+            # Scheduler tools (were missing → every call was denied at the
+            # policy layer; the scheduled escalation path was unreachable).
+            "schedule_task": {
+                "allowed": {
+                    "name", "prompt", "kind", "schedule",
+                    "allow", "catch_up", "max_lateness_hours",
+                },
+                "required": {"name", "prompt", "kind", "schedule"},
+            },
+            "list_scheduled_tasks": {
+                "allowed": {"include_done"},
+                "required": set(),
+            },
+            "cancel_scheduled_task": {
+                "allowed": {"task_id"},
+                "required": {"task_id"},
+            },
+            # Gmail tools.
+            "gmail_search": {
+                "allowed": {"query", "max_results"},
+                "required": set(),
+            },
+            "gmail_read": {
+                "allowed": {"message_id"},
+                "required": {"message_id"},
+            },
+            "gmail_reply": {
+                "allowed": {"message_id", "body"},
+                "required": {"message_id", "body"},
+            },
+            "gmail_send": {
+                "allowed": {"to", "subject", "body"},
+                "required": {"to", "body"},
+            },
+            # Browser tools.
+            "browse_page": {
+                "allowed": {"url", "max_chars"},
+                "required": {"url"},
+            },
+            "browser_fill": {
+                "allowed": {"url", "fields"},
+                "required": {"url", "fields"},
+            },
+            "browser_submit": {
+                "allowed": {"url", "selector", "description"},
+                "required": {"url"},
+            },
         }
 
         self.capabilities = {

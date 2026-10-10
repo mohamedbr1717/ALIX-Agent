@@ -285,6 +285,41 @@ class PromptContractTest(unittest.TestCase):
         self.assertIn("180", desc)
         self.assertNotIn("ممنوع دائمًا", desc)
 
+    def test_every_tool_has_argument_schema(self):
+        # Structural invariant: every tool the LLM can call must have a
+        # policy argument schema — otherwise validate_tool_arguments
+        # silently denies every call (this broke ALL scheduler tools:
+        # schedule_task/list/cancel were callable but never executable).
+        from core.agent.prompts import TOOLS
+        from core.policy import Policy
+
+        schema = Policy().tool_argument_schema
+        missing = [
+            t["function"]["name"]
+            for t in TOOLS
+            if t["function"]["name"] not in schema
+        ]
+        self.assertEqual(missing, [])
+
+    def test_schedule_task_schema_matches_tool_definition(self):
+        # The schema's allowed/required sets must mirror the TOOLS
+        # definition, or valid calls get denied (or invalid ones pass).
+        from core.agent.prompts import TOOLS
+        from core.policy import Policy
+
+        fn = next(
+            t["function"]
+            for t in TOOLS
+            if t["function"]["name"] == "schedule_task"
+        )
+        schema = Policy().tool_argument_schema["schedule_task"]
+        self.assertEqual(
+            set(fn["parameters"]["properties"].keys()), schema["allowed"]
+        )
+        self.assertEqual(
+            set(fn["parameters"]["required"]), schema["required"]
+        )
+
     def test_undo_message_uses_cancelled_wording(self):
         # Wording-contract regression guard: the undo success message must
         # say "أُلغيت", never the old "تم التراجع:" phrasing.
