@@ -73,6 +73,10 @@ class ALIXAgent(
         # Correlation ID for the currently running user request.
         self.current_request_id = None
 
+        # Tools denied (timeout/refusal) in the current turn: confirm_tool
+        # structurally blocks re-carding them until the next user message.
+        self._denied_this_turn: set[str] = set()
+
 
     def run(
         self,
@@ -93,6 +97,9 @@ class ALIXAgent(
         self.current_request_id = (
             self.observability.new_id()
         )
+
+        # New turn: past denials no longer block re-asking.
+        self._denied_this_turn = set()
 
         self.messages[0] = {
             "role": "system",

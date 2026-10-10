@@ -280,5 +280,74 @@ class PromptContractTest(unittest.TestCase):
         self.assertNotIn("تم التراجع:", src)
 
 
+class DenialRetryBlockedTest(unittest.TestCase):
+    """Structural single-denial: a tool denied once in a turn is never
+    re-carded in the same turn (fixes the duplicate-card-after-timeout
+    bug seen live: the LLM re-called a timed-out tool and the user got
+    a second approval card)."""
+
+    def _interactive_denying_agent(self):
+        agent = StubAgent()
+        agent.policy.scheduled_mode = False
+        calls = []
+
+        def deny(name, arguments, level):
+            calls.append(name)
+            return False
+
+        agent.confirm_fn = deny
+        agent.confirm_calls = calls
+        return agent
+
+    def test_retry_after_denial_blocked_without_recard(self):
+        agent = self._interactive_denying_agent()
+        self.assertFalse(
+            agent.confirm_tool("calendar_delete", {"event_id": "x"})
+        )
+        # Same tool, same turn → blocked; the confirmer is NOT invoked again.
+        self.assertFalse(
+            agent.confirm_tool("calendar_delete", {"event_id": "y"})
+        )
+        self.assertEqual(agent.confirm_calls, ["calendar_delete"])
+        self.assertIn("calendar_delete", agent._denied_this_turn)
+        kinds = [a[0][0] for a in agent.audits]
+        self.assertIn("tool_confirmation_retry_blocked", kinds)
+
+    def test_different_tool_still_allowed_after_denial(self):
+        agent = self._interactive_denying_agent()
+        self.assertFalse(
+            agent.confirm_tool("calendar_delete", {"event_id": "x"})
+        )
+        self.assertFalse(
+            agent.confirm_tool("calendar_add", {"title": "t"})
+        )
+        self.assertEqual(
+            agent.confirm_calls, ["calendar_delete", "calendar_add"]
+        )
+
+    def test_new_turn_clears_denial_registry(self):
+        agent = self._interactive_denying_agent()
+        self.assertFalse(
+            agent.confirm_tool("calendar_delete", {"event_id": "x"})
+        )
+        # run() resets the registry on every new user message.
+        agent._denied_this_turn = set()
+        self.assertFalse(
+            agent.confirm_tool("calendar_delete", {"event_id": "x"})
+        )
+        self.assertEqual(
+            agent.confirm_calls, ["calendar_delete", "calendar_delete"]
+        )
+
+    def test_denial_error_carries_no_retry_instruction(self):
+        agent = self._interactive_denying_agent()
+        result = agent.execute_tool(
+            "calendar_delete", {"event_id": "x"}
+        )
+        self.assertFalse(result["ok"])
+        self.assertIn("رفض المستخدم", result["error"])
+        self.assertIn("لا تستدع", result["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

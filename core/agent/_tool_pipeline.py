@@ -16,6 +16,37 @@ class _ToolPipelineMixin:
     ) -> bool:
         """
         يطلب موافقة المستخدم على العمليات الحساسة.
+
+        حظر هيكلي لإعادة المحاولة: الأداة المرفوضة مرة واحدة
+        في هذا الـ turn لا تُعرض بطاقتها مجددًا في نفس الـ turn.
+        المستخدم وحده يعيد الطلب برسالة جديدة.
+        """
+        denied = getattr(
+            self, "_denied_this_turn", None
+        )
+        if denied is not None and name in denied:
+            self.audit(
+                "tool_confirmation_retry_blocked",
+                {"tool": name},
+            )
+            return False
+        approved = self._confirm_tool_inner(
+            name, arguments
+        )
+        if not approved:
+            try:
+                self._denied_this_turn.add(name)
+            except AttributeError:
+                self._denied_this_turn = {name}
+        return approved
+
+    def _confirm_tool_inner(
+        self,
+        name: str,
+        arguments: dict
+    ) -> bool:
+        """
+        يطلب موافقة المستخدم على العمليات الحساسة.
         """
 
         if getattr(
@@ -327,7 +358,11 @@ class _ToolPipelineMixin:
         ):
             result = {
                 "ok": False,
-                "error": "رفض المستخدم تنفيذ العملية."
+                "error": (
+                    "رفض المستخدم تنفيذ العملية. "
+                    "أُلغيت هذه العملية نهائيًا — لا تستدعِ "
+                    "هذه الأداة مجددًا في هذه المحادثة."
+                ),
             }
 
             self.audit(
