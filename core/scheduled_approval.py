@@ -105,6 +105,21 @@ def write_verdict(rid: str, approved: bool, detail: str = "") -> None:
 
 def expire_request(rid: str, reason: str) -> None:
     """Archive a request as expired/cancelled. Drops any late verdict."""
+    _finish_request(rid, "expired", reason, stamp_key="expired_at")
+
+
+def complete_request(rid: str, status: str, reason: str = "") -> None:
+    """Archive a request as finished (approved/denied) and clean up.
+
+    Called by the daemon after consuming the verdict, so the bot stops
+    re-carding an already-answered request.
+    """
+    _finish_request(rid, status, reason, stamp_key="completed_at")
+
+
+def _finish_request(
+    rid: str, status: str, reason: str, stamp_key: str
+) -> None:
     q = _queue_base()
     src = q / "requests" / f"{rid}.json"
     if src.exists():
@@ -112,9 +127,9 @@ def expire_request(rid: str, reason: str) -> None:
             req = json.loads(src.read_text(encoding="utf-8"))
         except Exception:
             req = {"id": rid}
-        req["status"] = "expired"
+        req["status"] = status
         req["reason"] = reason
-        req["expired_at"] = datetime.now(timezone.utc).isoformat()
+        req[stamp_key] = datetime.now(timezone.utc).isoformat()
         _atomic_write(q / "archive" / f"{rid}.json", req)
         src.unlink()
     late = q / "results" / f"{rid}.json"

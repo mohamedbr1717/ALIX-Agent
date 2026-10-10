@@ -90,6 +90,21 @@ class QueueTest(unittest.TestCase):
         self.assertEqual(archived["status"], "expired")
         self.assertEqual(archived["reason"], "timeout")
 
+    def test_complete_archives_request(self):
+        home = _isolated_home(self)
+        req = sa.request_approval(
+            "t1", "n", "calendar_delete", {}, "destructive"
+        )
+        sa.write_verdict(req["id"], True)
+        sa.complete_request(req["id"], "approved", "وافق المستخدم")
+        base = _queue_base(home)
+        self.assertFalse((base / "requests" / f"{req['id']}.json").exists())
+        self.assertFalse((base / "results" / f"{req['id']}.json").exists())
+        archived = json.loads(
+            (base / "archive" / f"{req['id']}.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(archived["status"], "approved")
+
     def test_late_verdict_is_ignored(self):
         home = _isolated_home(self)
         req = sa.request_approval(
@@ -161,9 +176,17 @@ class ConfirmBranchTest(unittest.TestCase):
                 )
             finally:
                 t.join()
-        # The request carried the tool + a pending status.
+        # Approved → the request is archived so the bot never re-cards it.
         base = _queue_base(home)
-        self.assertTrue((base / "requests" / f"{rid_holder['id']}.json").exists())
+        self.assertFalse(
+            (base / "requests" / f"{rid_holder['id']}.json").exists()
+        )
+        archived = json.loads(
+            (
+                base / "archive" / f"{rid_holder['id']}.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(archived["status"], "approved")
 
     def test_denial_cancels_finally(self):
         home = _isolated_home(self)

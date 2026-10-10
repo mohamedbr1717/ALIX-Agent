@@ -156,6 +156,7 @@ class _ToolPipelineMixin:
         verdict = sa.await_verdict(req["id"])
 
         if verdict and verdict.get("approved") is True:
+            sa.complete_request(req["id"], "approved", "وافق المستخدم")
             self.audit(
                 "scheduled_approval_granted",
                 {"tool": name, "approval_id": req["id"]},
@@ -167,7 +168,10 @@ class _ToolPipelineMixin:
             if verdict
             else "انتهت مهلة الموافقة (180 ثانية) دون رد"
         )
-        sa.expire_request(req["id"], reason)
+        if verdict:
+            sa.complete_request(req["id"], "denied", reason)
+        else:
+            sa.expire_request(req["id"], reason)
         self.audit(
             "scheduled_approval_cancelled",
             {
