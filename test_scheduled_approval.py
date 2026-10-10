@@ -270,6 +270,21 @@ class PromptContractTest(unittest.TestCase):
         self.assertIn("المهمة نُفِّذت", SYSTEM_PROMPT)
         self.assertIn("المهمة أُلغيت", SYSTEM_PROMPT)
 
+    def test_schedule_task_description_mentions_escalation(self):
+        # Regression guard: the schedule_task description must document
+        # escalation path (ب), never claim destructive is always forbidden
+        # (that blanket ban made the LLM refuse to schedule, leaving the
+        # scheduled approval queue unreachable).
+        from core.agent.prompts import TOOLS
+
+        desc = next(
+            t["function"]["description"]
+            for t in TOOLS
+            if t["function"]["name"] == "schedule_task"
+        )
+        self.assertIn("180", desc)
+        self.assertNotIn("ممنوع دائمًا", desc)
+
     def test_undo_message_uses_cancelled_wording(self):
         # Wording-contract regression guard: the undo success message must
         # say "أُلغيت", never the old "تم التراجع:" phrasing.

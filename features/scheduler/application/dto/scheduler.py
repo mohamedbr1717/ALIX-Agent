@@ -7,7 +7,9 @@ from typing import Optional
 
 #: Permission ceilings a scheduled task may request. "destructive"
 #: is deliberately absent: unattended destructive runs are never
-#: authorized (fail-closed).
+#: authorized (fail-closed). Destructive tools may still appear in a
+#: task's prompt — at execution they escalate to a 180s Telegram
+#: approval window and never run without explicit approval.
 ALLOWED_CEILINGS = frozenset({"read", "write", "execute"})
 
 

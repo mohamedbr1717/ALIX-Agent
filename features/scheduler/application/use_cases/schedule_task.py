@@ -93,7 +93,9 @@ class ScheduleTaskUseCase:
                 started,
                 "مستوى الصلاحية must be one of: "
                 + ", ".join(sorted(ALLOWED_CEILINGS))
-                + ". (destructive ممنوع في المهام المجدولة)",
+                + ". (destructive لا يصلح سقفًا مسبقًا — "
+                "الأدوات المدمرة تُجدول بـ allow=execute "
+                "وتُصعَّد ببطاقة موافقة عند التنفيذ)",
             )
 
         kind = (request.kind or "").strip().lower()
