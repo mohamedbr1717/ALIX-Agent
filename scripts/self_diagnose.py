@@ -30,6 +30,7 @@ HOME = Path.home()
 HISTORY_FILE = HOME / "ALIX-Agent" / "history" / "actions.jsonl"
 ARCHIVE_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "archive"
 OUTBOX_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "outbox"
+DIAGNOSIS_DIR = HOME / "ALIX-Agent" / "diagnosis"
 
 # Signal thresholds.
 FLAG_MIN_FAILURES = 3      # absolute failures -> red flag
@@ -192,6 +193,44 @@ def build_report(a: dict, arch: dict, days: int, since: datetime) -> str:
     return "\n".join(L)
 
 
+def write_latest(args, a: dict, arch: dict, since: datetime) -> None:
+    """Machine-readable signals for the proposal stage (slice 2).
+
+    Written atomically next to the human report; never fails the run.
+    """
+    signals = []
+    for name, fails, calls in a["flags"]:
+        summaries = [s for t, s in a["recent_failures"] if t == name][:3]
+        signals.append(
+            {
+                "type": "tool_failures",
+                "tool": name,
+                "failures": fails,
+                "calls": calls,
+                "summaries": summaries,
+            }
+        )
+    for tool, cnt in arch["denied_tools"]:
+        signals.append({"type": "denied", "tool": tool, "count": cnt})
+    for tool, cnt in a["undone_tools"]:
+        if cnt >= 2:
+            signals.append({"type": "undone", "tool": tool, "count": cnt})
+    payload = {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "window_days": args.days,
+        "signals": signals,
+    }
+    try:
+        DIAGNOSIS_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = DIAGNOSIS_DIR / "latest.json.tmp"
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        os.replace(tmp, DIAGNOSIS_DIR / "latest.json")
+    except OSError:
+        pass
+
+
 def queue_report(text: str, outbox: Path) -> None:
     outbox.mkdir(parents=True, exist_ok=True)
     nid = uuid.uuid4().hex[:12]
@@ -219,9 +258,10 @@ def main() -> int:
         since = datetime.now(timezone.utc) - timedelta(days=max(1, args.days))
         actions = load_actions(args.history, since)
         archive = load_archive(args.archive, since)
-        report = build_report(
-            analyze_actions(actions), analyze_archive(archive), args.days, since
-        )
+        a = analyze_actions(actions)
+        arch = analyze_archive(archive)
+        report = build_report(a, arch, args.days, since)
+        write_latest(args, a, arch, since)
         if args.dry_run:
             print(report)
         else:
