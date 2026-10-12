@@ -1,8 +1,11 @@
 """Meta WhatsApp Cloud API gateway (official API, stdlib only).
 
 Security properties:
-- Credentials come from the environment only (WHATSAPP_PHONE_NUMBER_ID,
-  WHATSAPP_ACCESS_TOKEN); missing credentials fail closed.
+- Credentials come from the real environment, falling back to the
+  repo-root .env file (same mechanism the live bot uses: telegram_bot.py
+  reads .env via dotenv_values() into a dict and never injects it into
+  os.environ, so os.environ alone is not sufficient there).
+  Missing credentials fail closed.
 - Recipient numbers are strictly validated and normalized to digits;
   anything else is rejected before any network call.
 - Message text has a hard length cap (WhatsApp limit: 4096 chars).
@@ -17,6 +20,12 @@ import os
 import re
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+try:
+    from dotenv import dotenv_values
+except ImportError:  # pragma: no cover - optional, stdlib-only fallback
+    dotenv_values = None  # type: ignore[assignment]
 
 GRAPH_HOST = "graph.facebook.com"
 DEFAULT_API_VERSION = "v26.0"
@@ -35,16 +44,36 @@ _ERROR_HINTS = {
 }
 
 
+def _resolve_env(name: str) -> str:
+    """Config lookup: real environment first, repo-root .env second.
+
+    The live bot (telegram_bot.py) loads .env with dotenv_values() into a
+    plain dict and never puts those values into os.environ, so reading
+    os.environ alone misses them. This mirrors the bot's own mechanism.
+    """
+    value = os.environ.get(name, "").strip()
+    if value:
+        return value
+    if dotenv_values is None:
+        return ""
+    try:
+        # cloud_api_gateway.py is at
+        #   <repo>/features/whatsapp/infrastructure/adapters/
+        # -> five parents up is the repo root.
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        data = dotenv_values(repo_root / ".env") or {}
+        return str(data.get(name) or "").strip()
+    except Exception:
+        return ""
+
+
 class CloudApiGateway:
     """Sends WhatsApp messages via Meta's official Cloud API."""
 
     def __init__(self) -> None:
-        self._phone_number_id = os.environ.get(
-            "WHATSAPP_PHONE_NUMBER_ID", ""
-        ).strip()
-        self._token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "").strip()
-        version = os.environ.get("WHATSAPP_API_VERSION", "").strip()
-        self._version = version or DEFAULT_API_VERSION
+        self._phone_number_id = _resolve_env("WHATSAPP_PHONE_NUMBER_ID")
+        self._token = _resolve_env("WHATSAPP_ACCESS_TOKEN")
+        self._version = _resolve_env("WHATSAPP_API_VERSION") or DEFAULT_API_VERSION
 
     @staticmethod
     def normalize_number(to: str) -> str:

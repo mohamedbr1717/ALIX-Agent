@@ -1,6 +1,8 @@
 """Behavioral tests for the WhatsApp Cloud API feature slice.
 
 Network is fully mocked: no Meta calls, no credentials needed.
+Config sources are fully controlled: both os.environ and the .env-file
+fallback are neutralized except where a test explicitly sets them.
 """
 import io
 import json
@@ -23,6 +25,10 @@ from features.whatsapp.infrastructure.adapters.policy_whatsapp_authorization imp
 from features.whatsapp.interfaces.controllers.whatsapp_controller import (
     SendWhatsAppController,
 )
+
+_GW_MODULE = "features.whatsapp.infrastructure.adapters.cloud_api_gateway"
+_ENV_KEYS = ("WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_ACCESS_TOKEN",
+             "WHATSAPP_API_VERSION")
 
 
 class FakePolicy:
@@ -59,13 +65,14 @@ class FakeHTTPResponse:
 
 
 def make_gateway(**env):
-    with patch.dict(os.environ, env, clear=False):
-        # ensure unrelated env does not leak in
-        for k in ("WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_ACCESS_TOKEN",
-                  "WHATSAPP_API_VERSION"):
+    # Neutralize BOTH config sources, then set only what the test gives.
+    # (pops live inside patch.dict so the real environ is restored after.)
+    with patch.dict(os.environ, {}, clear=False):
+        for k in _ENV_KEYS:
             os.environ.pop(k, None)
         with patch.dict(os.environ, env):
-            return CloudApiGateway()
+            with patch(_GW_MODULE + ".dotenv_values", return_value={}):
+                return CloudApiGateway()
 
 
 class TestNumberNormalization(unittest.TestCase):
@@ -111,6 +118,40 @@ class TestGatewayConfig(unittest.TestCase):
             r = gw.send_text("not-a-number", "hi")
             self.assertFalse(r["ok"])
             m.assert_not_called()
+
+
+class TestEnvFallback(unittest.TestCase):
+    """The live bot reads .env via dotenv_values() into a dict and never
+    injects it into os.environ — the gateway must see that source too."""
+
+    def _clean(self):
+        for k in _ENV_KEYS:
+            os.environ.pop(k, None)
+
+    def test_falls_back_to_dotenv_file(self):
+        with patch.dict(os.environ, {}, clear=False):
+            self._clean()
+            fake_file = {"WHATSAPP_PHONE_NUMBER_ID": "999",
+                         "WHATSAPP_ACCESS_TOKEN": "tok-file"}
+            with patch(_GW_MODULE + ".dotenv_values", return_value=fake_file):
+                gw = CloudApiGateway()
+        self.assertEqual(gw._phone_number_id, "999")
+        self.assertEqual(gw._token, "tok-file")
+        self.assertEqual(gw._version, "v26.0")  # default when unset
+
+    def test_os_environ_wins_over_file(self):
+        with patch.dict(os.environ, {}, clear=False):
+            self._clean()
+            fake_file = {"WHATSAPP_PHONE_NUMBER_ID": "999",
+                         "WHATSAPP_ACCESS_TOKEN": "tok-file"}
+            with patch.dict(os.environ,
+                            {"WHATSAPP_PHONE_NUMBER_ID": "111",
+                             "WHATSAPP_ACCESS_TOKEN": "tok-env"}):
+                with patch(_GW_MODULE + ".dotenv_values",
+                            return_value=fake_file):
+                    gw = CloudApiGateway()
+        self.assertEqual(gw._phone_number_id, "111")
+        self.assertEqual(gw._token, "tok-env")
 
 
 class TestGatewaySend(unittest.TestCase):
