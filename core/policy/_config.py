@@ -112,6 +112,10 @@ class _ConfigMixin:
                 "allowed": {"number", "message"},
                 "required": {"number", "message"},
             },
+            "whatsapp_send": {
+                "allowed": {"to", "text"},
+                "required": {"to", "text"},
+            },
             "notify": {
                 "allowed": {"title", "content"},
                 "required": {"content"},
@@ -240,6 +244,7 @@ class _ConfigMixin:
             "gmail_send": "destructive",
             "phone_call": "destructive",
             "send_sms": "destructive",
+            "whatsapp_send": "destructive",
             "notify": "read",
             "resolve_contact": "read",
             "calendar_list": "read",

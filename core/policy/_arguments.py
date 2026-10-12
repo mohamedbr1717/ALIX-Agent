@@ -142,6 +142,10 @@ class _ArgumentsMixin:
                 "number": str,
                 "message": str,
             },
+            "whatsapp_send": {
+                "to": str,
+                "text": str,
+            },
             "notify": {
                 "title": str,
                 "content": str,
