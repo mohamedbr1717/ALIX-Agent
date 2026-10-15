@@ -281,10 +281,41 @@ class DualLLM:
         )
 
         if engine == "remote":
-            return self.hybrid.chat(
-                messages,
-                tools,
-            )
+            try:
+                return self.hybrid.chat(
+                    messages,
+                    tools,
+                )
+            except Exception as exc:  # offline failover -> local Gemma
+                # Narrow: only connectivity-level failures fail over.
+                # API errors (400/401/429/5xx) re-raise unchanged.
+                _offline_names = (
+                    "APIConnectionError", "APITimeoutError",
+                    "ConnectionError", "ConnectError", "TimeoutError",
+                    "URLError", "gaierror", "NewConnectionError",
+                    "MaxRetryError", "NameResolutionError",
+                )
+                _cur, _seen, _is_offline = exc, set(), False
+                while _cur is not None and id(_cur) not in _seen:
+                    _seen.add(id(_cur))
+                    if type(_cur).__name__ in _offline_names:
+                        _is_offline = True
+                        break
+                    _nxt = _cur.__cause__ or _cur.__context__
+                    _cur = _nxt if isinstance(_nxt, BaseException) else None
+                if not _is_offline:
+                    raise
+                self._audit(
+                    "llm_route_offline_failover",
+                    {"error": type(exc).__name__},
+                )
+                _local_result = self.local.chat(
+                    messages,
+                    tools,
+                )
+                if not self._failed(_local_result):
+                    return _local_result
+                raise  # _OFFLINE_FAILOVER_V1: local also failed -> original error
 
         # ----------------------------------------------------
         # المسار المحلي
