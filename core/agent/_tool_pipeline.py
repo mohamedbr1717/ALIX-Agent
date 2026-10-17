@@ -6,7 +6,20 @@ import time
 
 from core.prompt_guard import guard_tool_output
 from core.feature_bridge import build_migrated_tool_handlers
+def _failure_error_for_audit(result: object) -> str | None:
+    """Extract a short error string for the audit trail on tool failure.
+
+    Returns None when there is nothing useful to record.
+    """
+    if isinstance(result, dict):
+        err = result.get("error") or result.get("message")
+        if err:
+            return str(err)[:300]
+    return None
+
+
 class _ToolPipelineMixin:
+
     """Methods moved verbatim."""
 
     def confirm_tool(
@@ -490,9 +503,14 @@ class _ToolPipelineMixin:
             return result
 
         finally:
+            finished_data = {"tool": name}
+            if final_status in ("failure", "timeout", "exception"):
+                err = _failure_error_for_audit(result)
+                if err:
+                    finished_data["error"] = err
             self.audit(
                 "tool_finished",
-                {"tool": name},
+                finished_data,
                 execution_id=execution_id,
                 status=final_status,
                 latency_ms=(

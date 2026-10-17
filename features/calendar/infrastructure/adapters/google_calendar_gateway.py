@@ -214,5 +214,9 @@ class GoogleCalendarGateway:
             "DELETE", f"/calendars/primary/events/{encoded}"
         )
         if not result["ok"]:
+            # Idempotent delete: the desired end-state is "event absent".
+            # 404/410 means it is already absent -> report success.
+            if result.get("error") in ("HTTP 404", "HTTP 410"):
+                return {"ok": True, "already_deleted": True}
             return result
         return {"ok": True}

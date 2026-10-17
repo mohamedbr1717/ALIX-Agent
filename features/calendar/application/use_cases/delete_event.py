@@ -28,4 +28,6 @@ class DeleteEventUseCase:
                 ok=False,
                 message=f"تعذر حذف الموعد: {result.get('error', 'خطأ غير معروف')}",
             )
+        if result.get("already_deleted"):
+            return CalendarResult(ok=True, message="الموعد محذوف مسبقًا.")
         return CalendarResult(ok=True, message="تم حذف الموعد.")
