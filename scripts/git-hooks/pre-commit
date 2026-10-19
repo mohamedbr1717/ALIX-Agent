@@ -21,6 +21,7 @@
 # - This hook's own directory (scripts/git-hooks/) is exempt from content
 #   scanning (it contains the patterns as strings).
 # - Placeholder values (xxx, your-key, os.environ, ...) never trigger.
+# - Dotted code references (self.x, config.Y) never trigger (not literals).
 # - Fail-closed on DETECTION, fail-open on TOOL ERROR: if the hook itself
 #   breaks it warns and allows the commit rather than blocking all work.
 
@@ -63,6 +64,9 @@ CONTENT_RES=(
 # Generic KEY=<value> assignments; placeholders excluded separately.
 GENERIC_RE='(api[_-]?key|app[_-]?password|client[_-]?secret|refresh[_-]?token|password|passwd|secret)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9_./+=-]{12,}'
 PLACEHOLDER_RE='xxx+|\*{3,}|your[-_]|example|changeme|placeholder|dummy|fake|test[-_]?key|os\.environ|getenv|input\(|<[^>]*>|\$\{'
+# Dotted code references (self.x, config.Y) are never literal secrets -
+# excludes false positives like:  api_key=self.api_key,
+CODEREF_RE='[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_.]*'
 
 staged="$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)" || {
     echo "pre-commit secret guard: cannot list staged files — allowing (hook degraded)" >&2
@@ -99,7 +103,8 @@ while IFS= read -r f; do
     [ "$BLOCKED" -eq 1 ] && continue
 
     if git show ":$f" 2>/dev/null | grep -I -Ei "$GENERIC_RE" \
-        | grep -I -Evi "$PLACEHOLDER_RE" | grep -q .; then
+        | grep -I -Evi "$PLACEHOLDER_RE" \
+        | grep -I -Evi "$CODEREF_RE" | grep -q .; then
         echo "BLOCKED: possible secret assignment in staged file: $f" >&2
         BLOCKED=1
     fi
