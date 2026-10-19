@@ -287,13 +287,15 @@ class DualLLM:
                     tools,
                 )
             except Exception as exc:  # offline failover -> local Gemma
-                # Narrow: only connectivity-level failures fail over.
-                # API errors (400/401/429/5xx) re-raise unchanged.
+                # Part 2: failover on connectivity errors + GroqFailover
+                # (429/5xx/403-1010 classified in core/llm.py, no retry).
+                # 401 and non-1010 403 re-raise loudly (never failover).
                 _offline_names = (
                     "APIConnectionError", "APITimeoutError",
                     "ConnectionError", "ConnectError", "TimeoutError",
                     "URLError", "gaierror", "NewConnectionError",
                     "MaxRetryError", "NameResolutionError",
+                    "GroqFailover",
                 )
                 _cur, _seen, _is_offline = exc, set(), False
                 while _cur is not None and id(_cur) not in _seen:

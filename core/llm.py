@@ -15,6 +15,15 @@ from core.secret_scrub import scrub_literal as _scrub_literal
 from openai import OpenAI
 
 
+class GroqFailover(Exception):
+    """Part 2: Groq failed with a failover-able HTTP error (no retry).
+
+    Raised for: 429, 5xx, 403 with Cloudflare-1010 in body.
+    Caught by core/dual_llm.py to route to the local model.
+    Never raised for 401 or non-1010 403 (those fail loudly).
+    """
+
+
 class LocalLLM:
     """
     محرك LLM محلي متوافق مع OpenAI-compatible API
@@ -874,6 +883,28 @@ class HybridLLM:
                 except Exception as exc:
 
                     last_error = exc
+
+                    # Part 2: failover matrix - classify HTTP errors, no retry.
+                    _code = getattr(exc, "code", None)
+                    if _code == 401:
+                        raise  # loud: auth failure, never failover
+                    if _code == 403:
+                        _body403 = ""
+                        try:
+                            _body403 = exc.read().decode("utf-8", errors="replace")[:300]
+                        except Exception:
+                            pass
+                        if "1010" in _body403:
+                            raise GroqFailover(
+                                "Cloudflare-1010 (HTTP 403), failing over to local"
+                            )
+                        raise RuntimeError(
+                            "Groq HTTP 403 (not Cloudflare-1010): %s" % _body403[:200]
+                        )
+                    if _code == 429 or (_code is not None and 500 <= _code < 600):
+                        raise GroqFailover(
+                            "Groq HTTP %s, failing over to local" % _code
+                        )
 
                     if attempt < self.max_retries:
 
