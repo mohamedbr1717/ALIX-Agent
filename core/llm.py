@@ -100,7 +100,8 @@ class LocalLLM:
             data=data,
             headers={
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "User-Agent": "ALIX/1.0"
             },
             method="POST"
         )
@@ -418,7 +419,8 @@ class LocalLLM:
             data=data,
             headers={
                 "Content-Type": "application/json",
-                "Accept": "text/event-stream"
+                "Accept": "text/event-stream",
+                "User-Agent": "ALIX/1.0"
             },
             method="POST"
         )
