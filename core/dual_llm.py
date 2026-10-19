@@ -29,6 +29,7 @@ import re
 from typing import Any, Callable, Optional
 
 from core.llm import HybridLLM, LocalLLM
+from core.context_compressor import maybe_compress_messages  # _CONTEXT_COMPRESSOR_V1
 
 
 # ============================================================
@@ -282,6 +283,7 @@ class DualLLM:
 
         if engine == "remote":
             try:
+                messages = maybe_compress_messages(messages, self.local, 100000)  # _CONTEXT_COMPRESSOR_V1
                 return self.hybrid.chat(
                     messages,
                     tools,
@@ -311,6 +313,7 @@ class DualLLM:
                     "llm_route_offline_failover",
                     {"error": type(exc).__name__},
                 )
+                messages = maybe_compress_messages(messages, self.local, 12000)  # _CONTEXT_COMPRESSOR_V1
                 _local_result = self.local.chat(
                     messages,
                     tools,
@@ -323,6 +326,7 @@ class DualLLM:
         # المسار المحلي
         # ----------------------------------------------------
 
+        messages = maybe_compress_messages(messages, self.local, 12000)  # _CONTEXT_COMPRESSOR_V1
         result = self.local.chat(
             messages,
             tools,
@@ -349,6 +353,7 @@ class DualLLM:
             {"reason": reason},
         )
 
+        messages = maybe_compress_messages(messages, self.local, 100000)  # _CONTEXT_COMPRESSOR_V1
         return self.hybrid.chat(
             messages,
             tools,
