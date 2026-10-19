@@ -743,6 +743,16 @@ class HybridLLM:
     ) -> str:
 
         text = str(error)
+        # Cloudflare-1010 lesson: str(HTTPError) swallows the response body,
+        # which carries the real diagnosis (e.g. "error code: 1010").
+        if isinstance(error, urllib.error.HTTPError):
+            try:
+                _body = error.read().decode("utf-8", errors="replace")[:300]
+            except Exception:
+                _body = ""
+            if _body:
+                text += " | body: " + _body
+
 
         # منع ظهور المفتاح في الرسائل.
         # يعتمد على المفتاح المخزن داخل HybridLLM
