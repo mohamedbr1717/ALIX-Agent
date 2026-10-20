@@ -64,6 +64,8 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
         "core/feature_bridge.py",
         "features.scheduler.application.use_cases.run_due_tasks",
     ),
+    ("core/feature_bridge.py", "features.whatsapp.composition"),
+    ("core/feature_bridge.py", "features.meta_publish.composition"),
 }
 
 
