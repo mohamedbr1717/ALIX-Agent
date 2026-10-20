@@ -146,6 +146,14 @@ class _ArgumentsMixin:
                 "to": str,
                 "text": str,
             },
+            "facebook_post_text": {
+                "message": str,
+                "link": str,
+            },
+            "facebook_post_photo": {
+                "image_path": str,
+                "caption": str,
+            },
             "notify": {
                 "title": str,
                 "content": str,

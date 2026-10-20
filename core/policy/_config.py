@@ -116,6 +116,14 @@ class _ConfigMixin:
                 "allowed": {"to", "text"},
                 "required": {"to", "text"},
             },
+            "facebook_post_text": {
+                "allowed": {"message", "link"},
+                "required": {"message"},
+            },
+            "facebook_post_photo": {
+                "allowed": {"image_path", "caption"},
+                "required": {"image_path"},
+            },
             "notify": {
                 "allowed": {"title", "content"},
                 "required": {"content"},
@@ -245,6 +253,8 @@ class _ConfigMixin:
             "phone_call": "destructive",
             "send_sms": "destructive",
             "whatsapp_send": "destructive",
+            "facebook_post_text": "destructive",
+            "facebook_post_photo": "destructive",
             "notify": "read",
             "resolve_contact": "read",
             "calendar_list": "read",

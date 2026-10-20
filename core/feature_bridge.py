@@ -64,6 +64,10 @@ def build_migrated_tool_handlers(
     from features.whatsapp.composition import (
         build_whatsapp_send_controller,
     )
+    from features.meta_publish.composition import (
+        build_facebook_post_photo_controller,
+        build_facebook_post_text_controller,
+    )
     from features.contacts.composition import (
         build_resolve_contact_controller,
     )
@@ -105,6 +109,8 @@ def build_migrated_tool_handlers(
     phone_call_controller = build_phone_call_controller(policy)
     send_sms_controller = build_send_sms_controller(policy)
     whatsapp_send_controller = build_whatsapp_send_controller(policy)
+    facebook_post_text_controller = build_facebook_post_text_controller(policy)
+    facebook_post_photo_controller = build_facebook_post_photo_controller(policy)
     notify_controller = build_notify_controller(policy)
     resolve_contact_controller = build_resolve_contact_controller(policy)
     calendar_controllers = build_calendar_controllers(policy)
@@ -148,6 +154,8 @@ def build_migrated_tool_handlers(
         "phone_call": lambda **kwargs: phone_call_controller.handle(kwargs),
         "send_sms": lambda **kwargs: send_sms_controller.handle(kwargs),
         "whatsapp_send": lambda **kwargs: whatsapp_send_controller.handle(kwargs),
+        "facebook_post_text": lambda **kwargs: facebook_post_text_controller.handle(kwargs),
+        "facebook_post_photo": lambda **kwargs: facebook_post_photo_controller.handle(kwargs),
         "notify": lambda **kwargs: notify_controller.handle(kwargs),
         "resolve_contact": lambda **kwargs: resolve_contact_controller.handle(kwargs),
         "calendar_list": lambda **kwargs: calendar_controllers["calendar_list"].handle(kwargs),

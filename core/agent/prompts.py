@@ -470,6 +470,49 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "facebook_post_text",
+            "description": "نشر منشور نصي (مع رابط اختياري) على صفحة فيسبوك «Shoppings» عبر Graph API الرسمي (Meta). أداة مدمرة: تتطلب موافقة صريحة لكل منشور؛ في المهام المجدولة تُعلَّق وتحتاج بطاقة موافقة (180 ثانية).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "نص المنشور (حتى 5000 حرف)."
+                    },
+                    "link": {
+                        "type": "string",
+                        "description": "رابط اختياري يُرفق بالمنشور (http/https فقط)."
+                    }
+                },
+                "required": ["message"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "facebook_post_photo",
+            "description": "نشر صورة محفوظة داخل workspace على صفحة فيسبوك «Shoppings» عبر Graph API الرسمي (Meta)، مع تعليق اختياري. أداة مدمرة: تتطلب موافقة صريحة لكل منشور؛ في المهام المجدولة تُعلَّق وتحتاج بطاقة موافقة (180 ثانية).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_path": {
+                        "type": "string",
+                        "description": "مسار الصورة داخل workspace (jpg/png/gif/webp، حتى 10MB)."
+                    },
+                    "caption": {
+                        "type": "string",
+                        "description": "تعليق اختياري يرافق الصورة."
+                    }
+                },
+                "required": ["image_path"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "resolve_contact",
             "description": "حل اسم جهة اتصال إلى رقم هاتف من دفتر الهاتف. عندما يطلب المستخدم الاتصال بشخص أو مراسلته بالاسم (وليس برقم)، استدع هذه الأداة فورًا — لا تسأل عن الرقم ولا تشرح خطتك، نفذ مباشرة. أداة قراءة فقط (لا تحتاج موافقة). عند الغموض تُرجع المرشحين دون تخمين.",
             "parameters": {
