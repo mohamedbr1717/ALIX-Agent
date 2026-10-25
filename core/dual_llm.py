@@ -29,7 +29,13 @@ import re
 from typing import Any, Callable, Optional
 
 from core.llm import HybridLLM, LocalLLM
-from core.context_compressor import maybe_compress_messages  # _CONTEXT_COMPRESSOR_V1
+from core.context_compressor import (  # _CONTEXT_COMPRESSOR_V1
+    maybe_compress_messages,
+    enforce_token_budget,
+    estimate_messages_tokens,
+    estimate_tools_tokens,
+    REMOTE_TOKEN_BUDGET_TOKENS,
+)
 
 
 # ============================================================
@@ -283,7 +289,7 @@ class DualLLM:
 
         if engine == "remote":
             try:
-                messages = maybe_compress_messages(messages, self.local, 100000)  # _CONTEXT_COMPRESSOR_V1
+                messages = self._enforce_remote_budget(messages, tools)
                 return self.hybrid.chat(
                     messages,
                     tools,
@@ -353,11 +359,36 @@ class DualLLM:
             {"reason": reason},
         )
 
-        messages = maybe_compress_messages(messages, self.local, 100000)  # _CONTEXT_COMPRESSOR_V1
+        messages = self._enforce_remote_budget(messages, tools)
         return self.hybrid.chat(
             messages,
             tools,
         )
+
+    def _enforce_remote_budget(self, messages, tools):
+        """Keep every Groq-bound payload under the TPM token budget.
+
+        Best-effort local summarization first, then deterministic
+        trimming. If the irreducible payload still exceeds the budget,
+        raise GroqFailover (honest failover) instead of sending a
+        request Groq would reject with 413/429.
+        """
+        tools_tokens = estimate_tools_tokens(tools)
+        msg_budget = REMOTE_TOKEN_BUDGET_TOKENS - tools_tokens
+        if msg_budget < 0:
+            msg_budget = 0
+        messages = maybe_compress_messages(messages, self.local, msg_budget)  # _CONTEXT_COMPRESSOR_V1
+        messages = enforce_token_budget(messages, msg_budget)
+        est = estimate_messages_tokens(messages)
+        if est > msg_budget:
+            from core.llm import GroqFailover
+            raise GroqFailover(
+                f"token budget exceeded: messages est {est} + tools est "
+                f"{tools_tokens} > budget {REMOTE_TOKEN_BUDGET_TOKENS}; "
+                "failing over to local"
+            )
+        return messages
+
 
     # --------------------------------------------------------
     # Status

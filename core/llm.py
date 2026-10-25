@@ -788,13 +788,6 @@ class HybridLLM:
             )
 
         # ALIX native context compression: reduce tokens before sending.
-        # Fail-closed: on error, sends original messages.
-        try:
-            from core.context_compressor import ContextCompressor
-            _compressor = ContextCompressor(max_tokens=6000)
-            messages = _compressor.compress(messages)
-        except Exception:
-            pass
 
         # Tool calls need short outputs — lower the token budget to
         # stay under Groq's TPM rate limit.
@@ -885,7 +878,14 @@ class HybridLLM:
                     last_error = exc
 
                     # Part 2: failover matrix - classify HTTP errors, no retry.
-                    _code = getattr(exc, "code", None)
+                    # openai: HTTP status is status_code (int);
+                    # .code is the string error code (e.g. 'rate_limit_exceeded').
+                    _code = getattr(exc, "status_code", None)
+                    if _code is None:
+                        try:
+                            _code = int(getattr(exc, "code", None))
+                        except (TypeError, ValueError):
+                            _code = None
                     if _code == 401:
                         raise  # loud: auth failure, never failover
                     if _code == 403:
