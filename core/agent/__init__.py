@@ -16,6 +16,7 @@ from core.feature_bridge import (
     build_migrated_tool_handlers,
     build_planning_controller,
 )
+from domain.planning.intent import is_multi_step_request
 from .prompts import SYSTEM_PROMPT, TOOLS, EVIDENCE_PRIORITY_ADDENDUM
 from ._tool_pipeline import _ToolPipelineMixin
 from ._message_utils import _MessageUtilsMixin
@@ -146,42 +147,55 @@ class ALIXAgent(
         if self._is_research_request(user_input):
             return self._run_research(user_input)
 
+        # ----------------------------------------------------
+        # Decision 1 (post-E2E fix): intent-first plan routing.
+        # A request that is STRUCTURALLY multi-step (explicit
+        # ordering connectors / enumerated steps / an in-order
+        # instruction — domain.planning.intent, pure code) is
+        # offered to the plan path BEFORE the loop: the endurance
+        # trigger below cannot see such a task, because a fast
+        # model batches it into one or two rounds and answers
+        # before any escalation point is reached (live E2E,
+        # 2026-10-27 — no plan was ever created). A declined
+        # attempt falls through to the plain loop untouched,
+        # exactly like a declined escalation. Research requests
+        # never reach here — their branch above keeps precedence.
+        # ----------------------------------------------------
+        if is_multi_step_request(user_input):
+            planned_reply = self._try_plan_escalation(
+                user_input
+            )
+            if planned_reply is not None:
+                return self._return_planned_reply(
+                    planned_reply,
+                    0
+                )
+
         for round_number in range(
             self.MAX_ROUNDS
         ):
 
             # ----------------------------------------------------
-            # Decision 1: round-3 escalation to a persistent plan.
-            # Two interactive rounds have already executed tools
-            # without finishing: the task has PROVEN multi-step,
-            # so code (not the model) hands the remaining work to
-            # the deterministic plan executor. A rejected/failed
-            # escalation falls back to plain ReAct, unchanged.
+            # Decision 1: round-2 endurance escalation to a
+            # persistent plan. One interactive round has already
+            # executed tools without finishing, so code (not the
+            # model) hands the remaining work to the deterministic
+            # plan executor. (Originally round 3; moved one round
+            # earlier by the post-E2E fix — the intent-first check
+            # above now catches the explicit cases first, and this
+            # net remains for multi-step work that only reveals
+            # itself by enduring.) A rejected/failed escalation
+            # falls back to plain ReAct, unchanged.
             # ----------------------------------------------------
-            if round_number == 2:
+            if round_number == 1:
                 planned_reply = self._try_plan_escalation(
                     user_input
                 )
                 if planned_reply is not None:
-                    self.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": planned_reply
-                        }
+                    return self._return_planned_reply(
+                        planned_reply,
+                        round_number + 1
                     )
-                    self.memory.add_history(
-                        "assistant",
-                        planned_reply
-                    )
-                    self.audit(
-                        "agent_final",
-                        {
-                            "length": len(planned_reply),
-                            "round": round_number + 1,
-                            "planned": True
-                        }
-                    )
-                    return planned_reply
 
             self.audit(
                 "agent_round",
@@ -416,8 +430,33 @@ class ALIXAgent(
             )
         return prior
 
+    def _return_planned_reply(self, planned_reply, round_number):
+        """Shared bookkeeping for a plan-path reply (spec §4.1):
+        identical whichever trigger reached the plan — intent-
+        first (round 0, before the loop) or endurance escalation
+        (round = the loop round it interrupted)."""
+        self.messages.append(
+            {
+                "role": "assistant",
+                "content": planned_reply
+            }
+        )
+        self.memory.add_history(
+            "assistant",
+            planned_reply
+        )
+        self.audit(
+            "agent_final",
+            {
+                "length": len(planned_reply),
+                "round": round_number,
+                "planned": True
+            }
+        )
+        return planned_reply
+
     def _try_plan_escalation(self, user_input: str):
-        """Attempt the round-3 plan escalation.
+        """Attempt plan escalation (intent-first or endurance).
 
         Returns the plan run's reply text when a plan was created
         and executed; None when planning declined — the caller
