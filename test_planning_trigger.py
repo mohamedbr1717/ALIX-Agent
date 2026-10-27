@@ -9,7 +9,9 @@ Pins the corrected trigger wiring of core/agent/__init__.py:
 * a declined intent attempt falls through to the plain loop;
 * the endurance net now fires when ENTERING round 2
   (round_number == 1), not round 3;
-* research requests keep precedence over the intent check.
+* research runs AFTER the intent check (v3): a declined
+  intent attempt on a genuine research request still falls
+  through to the research branch.
 
 core.agent cannot be imported bare in this environment
 (core/llm.py needs python-dotenv and openai, absent here), so
@@ -38,8 +40,10 @@ DETECTED_TEXT = (
 #: Neither detected nor a research request.
 PLAIN_TEXT = "نفّذ هذه المهمة من فضلك"
 
-#: A research request that ALSO matches the detector — used to
-#: prove the research branch keeps precedence.
+#: A research request that ALSO matches the detector — used
+#: to prove that, under the v3 precedence (intent first), a
+#: DECLINED intent attempt on a genuine research phrasing
+#: («ابحث لي») still reaches the research branch.
 RESEARCH_TEXT = "ابحث لي أولًا عن أسعار الذهب، ثم ابحث عن أسعار الفضة"
 
 _AGENT_CLS = None
@@ -210,17 +214,23 @@ class PlanTriggerSeamTest(unittest.TestCase):
         self.assertTrue(finals[0]["planned"])
         self.assertEqual(finals[0]["round"], 2)
 
-    def test_research_precedence_over_intent(self):
-        # Premise: the text really is detector-positive, so only
-        # the research branch's precedence keeps it out of plans.
+    def test_research_reached_after_declined_intent_attempt(self):
+        # v3 precedence (live reproduction 2026-10-27 21:49):
+        # the intent check runs BEFORE the research branch, so
+        # this detector-positive text is offered to the planner
+        # first. It is a genuine research phrasing («ابحث لي»),
+        # so when the intent attempt declines, the request must
+        # still reach research — research behavior for genuine
+        # phrasings is preserved, only the order changed.
         from domain.planning.intent import is_multi_step_request
 
         self.assertTrue(is_multi_step_request(RESEARCH_TEXT))
-        self.escalation_reply = "SHOULD NOT BE USED"
+        self.escalation_reply = None  # planner declines
         result = self._run(RESEARCH_TEXT, [_text_response("unused")])
         self.assertEqual(result, "RESEARCH RESULT")
-        self.assertEqual(self.escalation_calls, [])
-        self.assertEqual(self.events, [])
+        self.assertEqual(self.escalation_calls, [RESEARCH_TEXT])
+        self.assertEqual(self.research_calls, [RESEARCH_TEXT])
+        self.assertEqual(self.events, ["escalation"])
 
     def test_single_step_request_never_escalates(self):
         self.escalation_reply = "SHOULD NOT BE USED"

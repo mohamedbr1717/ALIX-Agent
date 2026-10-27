@@ -144,22 +144,28 @@ class ALIXAgent(
         # before accepting new work (once per instance).
         self._ensure_planning_recovery()
 
-        if self._is_research_request(user_input):
-            return self._run_research(user_input)
-
         # ----------------------------------------------------
-        # Decision 1 (post-E2E fix): intent-first plan routing.
+        # Decision 1 (post-E2E fix v3): intent BEFORE research.
         # A request that is STRUCTURALLY multi-step (explicit
         # ordering connectors / enumerated steps / an in-order
         # instruction — domain.planning.intent, pure code) is
-        # offered to the plan path BEFORE the loop: the endurance
-        # trigger below cannot see such a task, because a fast
+        # offered to the plan path FIRST: the endurance trigger
+        # in the loop cannot see such a task, because a fast
         # model batches it into one or two rounds and answers
         # before any escalation point is reached (live E2E,
-        # 2026-10-27 — no plan was ever created). A declined
-        # attempt falls through to the plain loop untouched,
-        # exactly like a declined escalation. Research requests
-        # never reach here — their branch above keeps precedence.
+        # 2026-10-27 — no plan was ever created). An explicitly
+        # ordered action sequence is never a web-research
+        # request, so this check also precedes the research
+        # branch: until v3 the research check ran first and its
+        # bare «ابحث» trigger hijacked ordered tasks containing
+        # «ابحث عن جهة اتصال» / «ابحث في Gmail» into web
+        # research (proven by live headless reproduction,
+        # 2026-10-27 21:49 — run() returned a research-mode
+        # answer, incl. a dictionary definition of the planner
+        # LLM's own refusal line). A declined attempt falls
+        # through untouched: to research when the request is a
+        # genuine research phrasing, else to the plain loop,
+        # exactly like a declined escalation.
         # ----------------------------------------------------
         if is_multi_step_request(user_input):
             planned_reply = self._try_plan_escalation(
@@ -170,6 +176,9 @@ class ALIXAgent(
                     planned_reply,
                     0
                 )
+
+        if self._is_research_request(user_input):
+            return self._run_research(user_input)
 
         for round_number in range(
             self.MAX_ROUNDS
@@ -508,7 +517,15 @@ class ALIXAgent(
         return outcome.reply_text
 
 
-    _RESEARCH_TRIGGERS = ("ابحث", "تجمع لي بيانات", "اجمع لي بيانات", "اجمع بيانات", "research")
+    # Research triggers are EXPLICIT research phrasings only.
+    # The bare «ابحث» is deliberately absent (v3, 2026-10-27):
+    # it is a substring of ordinary action commands —
+    # «ابحث عن جهة اتصال», «ابحث في Gmail», «ابحث في الملفات» —
+    # and hijacked them into web research (live reproduction:
+    # an ordered 4-step task returned a research-mode answer
+    # instead of executing). Asking for a search "for me"
+    # («ابحث لي») or for data gathering is the research signal.
+    _RESEARCH_TRIGGERS = ("ابحث لي", "تجمع لي بيانات", "اجمع لي بيانات", "اجمع بيانات", "research")
     _RESEARCH_MAX_PARTS = 5
     _RESEARCH_MAX_RESULTS = 3
     _RESEARCH_FETCH_CHARS = 4000
@@ -541,7 +558,31 @@ class ALIXAgent(
             {"role": "user", "content": user_input},
         ])
         parts = [ln.strip(" -•\t") for ln in plan_text.splitlines() if ln.strip()]
-        parts = parts[: self._RESEARCH_MAX_PARTS] or [user_input]
+        if not parts:
+            # The planner produced nothing at all: keep the
+            # historical fallback of researching the raw request.
+            parts = [user_input]
+        else:
+            # HARDENING (v3, live reproduction 2026-10-27): a
+            # planner REFUSAL line must never become a search
+            # query. The unfiltered flow web-searched the planner
+            # LLM's own "I'm sorry, but I can't help with that"
+            # line and distilled a dictionary definition of it
+            # into the final answer. Drop any line matching the
+            # refusal markers — the same test applied to
+            # distilled notes below. A refusal-ONLY planner
+            # output leaves parts empty: no search runs, notes
+            # stays empty, and the ⚠️ insufficient-data answer
+            # at the end of this method is what gets returned.
+            parts = [
+                ln
+                for ln in parts
+                if not any(
+                    m in ln.lower()
+                    for m in self._RESEARCH_REFUSAL_MARKERS
+                )
+            ]
+            parts = parts[: self._RESEARCH_MAX_PARTS]
         notes = []
         for q in parts:
             try:
