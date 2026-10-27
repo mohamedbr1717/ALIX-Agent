@@ -1,5 +1,9 @@
 """HMAC-signed capability tokens for destructive MCP calls.
 
+NOTE (naming): plan_signer = capability tokens ONLY. The Decision 1
+planning feature (Plan/PlanStep objects) lives in domain/planning +
+features/planning — never name anything there plan_sign*.
+
 The MCP client is untrusted: a self-asserted ``confirmed: true`` boolean is
 worthless as confirmation. Instead the operator mints a capability token
 offline with a shared secret (``ALIX_MCP_HMAC_KEY``) and the client presents

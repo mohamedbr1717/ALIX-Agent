@@ -181,6 +181,16 @@ class _ConfigMixin:
                 "allowed": {"task_id"},
                 "required": {"task_id"},
             },
+            # Planning tools (Decision 1) — without these entries
+            # validate_tool_arguments would deny every call.
+            "plan_status": {
+                "allowed": {"plan_id", "include_finished"},
+                "required": set(),
+            },
+            "plan_cancel": {
+                "allowed": {"plan_id"},
+                "required": {"plan_id"},
+            },
             # Gmail tools.
             "gmail_search": {
                 "allowed": {"query", "max_results"},
@@ -246,6 +256,8 @@ class _ConfigMixin:
             "schedule_task": "write",
             "list_scheduled_tasks": "read",
             "cancel_scheduled_task": "write",
+            "plan_status": "read",
+            "plan_cancel": "write",
             "gmail_search": "read",
             "gmail_read": "read",
             "gmail_reply": "destructive",

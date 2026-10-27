@@ -292,6 +292,43 @@ TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "plan_status",
+            "description": (
+                "قراءة حالة خطط التنفيذ متعددة الخطوات: بلا plan_id "
+                "يعرض الخطط غير المنتهية، وبـ plan_id يعرض خطة "
+                "واحدة بخطواتها وحالتها المشتقة."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "plan_id": {"type": "string"},
+                    "include_finished": {"type": "boolean"}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plan_cancel",
+            "description": (
+                "إلغاء خطة تنفيذ بمعرّفها: كل خطواتها المنتظرة أو "
+                "المحظورة تصبح متخطاة، والخطوات المنتهية تبقى كما "
+                "هي سجلًا تاريخيًا."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "plan_id": {"type": "string"}
+                },
+                "required": ["plan_id"]
+            }
+        }
+    },
 
     {
         "type": "function",

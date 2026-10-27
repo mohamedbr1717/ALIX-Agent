@@ -84,6 +84,9 @@ def build_migrated_tool_handlers(
         build_gmail_search_controller,
         build_gmail_send_controller,
     )
+    from features.planning.composition import (
+        build_plan_admin_controller,
+    )
 
     read_file_controller = build_read_file_controller(policy)
     write_file_controller = build_write_file_controller(policy)
@@ -122,6 +125,11 @@ def build_migrated_tool_handlers(
     gmail_read_controller = build_gmail_read_controller()
     gmail_reply_controller = build_gmail_reply_controller()
     gmail_send_controller = build_gmail_send_controller()
+    # Planning (Decision 1): only the store-backed admin face is
+    # a tool surface (plan_status / plan_cancel). The full
+    # controller (creation + executor) is built separately by
+    # build_planning_controller() below for the agent seam.
+    planning_admin_controller = build_plan_admin_controller()
 
     handlers = {
         "create_directory": lambda **kwargs: create_directory_controller.handle(kwargs),
@@ -161,6 +169,8 @@ def build_migrated_tool_handlers(
         "calendar_list": lambda **kwargs: calendar_controllers["calendar_list"].handle(kwargs),
         "calendar_add": lambda **kwargs: calendar_controllers["calendar_add"].handle(kwargs),
         "calendar_delete": lambda **kwargs: calendar_controllers["calendar_delete"].handle(kwargs),
+        "plan_status": lambda **kwargs: planning_admin_controller.handle_status(kwargs),
+        "plan_cancel": lambda **kwargs: planning_admin_controller.handle_cancel(kwargs),
         "history": lambda **kwargs: history_controllers["history"].handle(kwargs),
         "undo": lambda **kwargs: history_controllers["undo"].handle(kwargs),
     }
@@ -252,3 +262,100 @@ def build_gmail_send_controller():
     )
 
     return _build()
+
+
+def _planning_tool_registry(policy):
+    """(allowlist, tool_schemas) for plan-draft validation.
+
+    Spec §2.6.6: the allowlist is the intersection of TOOLS names
+    (core/agent/prompts.py) with tool_permissions keys. The import
+    is deferred and defensive: in the live agent prompts is
+    already loaded, but isolated tooling without the agent's
+    dependencies falls back to Policy's own registry
+    (tool_permissions + tool_argument_schema) — the same data
+    Policy itself enforces at dispatch time.
+    """
+    permissions = dict(
+        getattr(policy, "tool_permissions", {}) or {}
+    )
+
+    try:
+        from core.agent.prompts import TOOLS
+    except Exception:
+        TOOLS = None
+
+    schemas = {}
+    if TOOLS:
+        for entry in TOOLS:
+            if not isinstance(entry, dict):
+                continue
+            fn = entry.get("function", {})
+            name = fn.get("name")
+            props = (
+                (fn.get("parameters") or {}).get("properties")
+                or {}
+            )
+            if name:
+                schemas[name] = frozenset(props.keys())
+        allowlist = frozenset(schemas) & frozenset(permissions)
+    else:
+        schema_map = (
+            getattr(policy, "tool_argument_schema", None)
+            or {}
+        )
+        for name in permissions:
+            spec = schema_map.get(name) or {}
+            allowed = spec.get("allowed", set())
+            schemas[name] = frozenset(allowed)
+        allowlist = frozenset(permissions)
+
+    return allowlist, schemas
+
+
+def build_planning_controller(
+    policy,
+    llm,
+    memory,
+    execute_tool,
+    base_dir=None,
+):
+    """Full planning controller for the agent (Decision 1).
+
+    THE wiring point of the slice: the agent's own execute_tool
+    is injected as the executor's dispatch, so every plan step
+    passes the existing Policy/confirmation path (spec §4.4) —
+    no private executor exists. Owner notifications go to the
+    scheduled-approval outbox, which telegram_bot already polls
+    and delivers. ``memory`` is accepted per the spec signature
+    and reserved for later decisions; Decision 1 does not read it.
+    """
+    from core import scheduled_approval
+    from features.planning.composition import (
+        build_planning_controller as _build,
+    )
+
+    allowlist, tool_schemas = _planning_tool_registry(policy)
+    permissions = dict(
+        getattr(policy, "tool_permissions", {}) or {}
+    )
+    destructive_tools = frozenset(
+        name
+        for name, level in permissions.items()
+        if level == "destructive"
+    )
+    confirming_tools = frozenset(
+        name
+        for name, level in permissions.items()
+        if level in ("write", "execute", "destructive")
+    )
+
+    return _build(
+        llm=llm,
+        execute_tool=execute_tool,
+        base_dir=base_dir,
+        notify_fn=scheduled_approval.notify_user,
+        allowlist=allowlist,
+        tool_schemas=tool_schemas,
+        destructive_tools=destructive_tools,
+        confirming_tools=confirming_tools,
+    )

@@ -1,6 +1,7 @@
 """ALIXAgent facade (public API unchanged)."""
 from __future__ import annotations
 
+import json
 import re
 import time
 from pathlib import Path
@@ -11,7 +12,10 @@ from core.policy import Policy
 from core.memory import Memory
 from core.executor import SafeExecutor
 from core.observability import ObservabilityLogger
-from core.feature_bridge import build_migrated_tool_handlers
+from core.feature_bridge import (
+    build_migrated_tool_handlers,
+    build_planning_controller,
+)
 from .prompts import SYSTEM_PROMPT, TOOLS, EVIDENCE_PRIORITY_ADDENDUM
 from ._tool_pipeline import _ToolPipelineMixin
 from ._message_utils import _MessageUtilsMixin
@@ -79,6 +83,14 @@ class ALIXAgent(
         # structurally blocks re-carding them until the next user message.
         self._denied_this_turn: set[str] = set()
 
+        # Decision 1 (planning): the planning controller is built
+        # lazily on first use (like _migrated_handlers), and crash
+        # recovery of stored plans runs once per instance before
+        # the first unit of work.
+        self._planning_controller = None
+        self._planning_recovered = False
+        self._planning_available = True
+
 
     def run(
         self,
@@ -127,12 +139,49 @@ class ALIXAgent(
             }
         )
 
+        # Decision 1: normalize any crash-interrupted plans
+        # before accepting new work (once per instance).
+        self._ensure_planning_recovery()
+
         if self._is_research_request(user_input):
             return self._run_research(user_input)
 
         for round_number in range(
             self.MAX_ROUNDS
         ):
+
+            # ----------------------------------------------------
+            # Decision 1: round-3 escalation to a persistent plan.
+            # Two interactive rounds have already executed tools
+            # without finishing: the task has PROVEN multi-step,
+            # so code (not the model) hands the remaining work to
+            # the deterministic plan executor. A rejected/failed
+            # escalation falls back to plain ReAct, unchanged.
+            # ----------------------------------------------------
+            if round_number == 2:
+                planned_reply = self._try_plan_escalation(
+                    user_input
+                )
+                if planned_reply is not None:
+                    self.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": planned_reply
+                        }
+                    )
+                    self.memory.add_history(
+                        "assistant",
+                        planned_reply
+                    )
+                    self.audit(
+                        "agent_final",
+                        {
+                            "length": len(planned_reply),
+                            "round": round_number + 1,
+                            "planned": True
+                        }
+                    )
+                    return planned_reply
 
             self.audit(
                 "agent_round",
@@ -269,6 +318,155 @@ class ALIXAgent(
         )
 
         return warning
+
+
+    # --------------------------------------------------------
+    # Decision 1 (planning): lazy wiring + escalation seam
+    # --------------------------------------------------------
+
+    def _ensure_planning_controller(self):
+        """Build the planning controller once, via the bridge
+        only (core never imports features directly). The agent's
+        own execute_tool is the executor's dispatch — one Policy
+        path for model calls and plan steps alike."""
+        if self._planning_controller is None:
+            self._planning_controller = (
+                build_planning_controller(
+                    self.policy,
+                    self.llm,
+                    self.memory,
+                    self.execute_tool,
+                    Path.home() / "ALIX-Agent",
+                )
+            )
+        return self._planning_controller
+
+    def _ensure_planning_recovery(self):
+        """Crash-normalize stored plans once per instance.
+
+        A recovery failure disables planning for this session
+        (plans may sit on unnormalized state) but never breaks
+        the agent: plain ReAct keeps working."""
+        if self._planning_recovered:
+            return
+        self._planning_recovered = True
+        try:
+            controller = self._ensure_planning_controller()
+            recovered = controller.recover()
+            if recovered:
+                self.audit(
+                    "planning_recovered",
+                    {
+                        "plans": [
+                            p.plan_id for p in recovered
+                        ]
+                    },
+                )
+        except Exception as exc:
+            self._planning_available = False
+            self.audit(
+                "planning_recovery_failed",
+                {"error": type(exc).__name__},
+            )
+
+    def _collect_prior_actions(self):
+        """(tool, args, raw_result_text) triples for everything
+        already executed interactively in this run — the plan
+        covers only the REMAINING work (spec §4.1)."""
+        calls = {}
+        for msg in self.messages:
+            if not isinstance(msg, dict):
+                continue
+            if msg.get("role") != "assistant":
+                continue
+            for tc in msg.get("tool_calls") or []:
+                if not isinstance(tc, dict):
+                    continue
+                fn = tc.get("function") or {}
+                raw_args = fn.get("arguments")
+                try:
+                    args = (
+                        json.loads(raw_args)
+                        if isinstance(raw_args, str)
+                        else (raw_args or {})
+                    )
+                except Exception:
+                    args = {}
+                calls[tc.get("id")] = (
+                    fn.get("name"),
+                    args if isinstance(args, dict) else {},
+                )
+
+        prior = []
+        for msg in self.messages:
+            if not isinstance(msg, dict):
+                continue
+            if msg.get("role") != "tool":
+                continue
+            name, args = calls.get(
+                msg.get("tool_call_id"),
+                (msg.get("name"), {}),
+            )
+            prior.append(
+                (
+                    name or msg.get("name") or "",
+                    args,
+                    str(msg.get("content") or ""),
+                )
+            )
+        return prior
+
+    def _try_plan_escalation(self, user_input: str):
+        """Attempt the round-3 plan escalation.
+
+        Returns the plan run's reply text when a plan was created
+        and executed; None when planning declined — the caller
+        then continues the plain ReAct loop untouched (the spec's
+        safe fallback)."""
+        if not getattr(self, "_planning_available", True):
+            return None
+        try:
+            controller = self._ensure_planning_controller()
+            origin = (
+                "scheduled"
+                if getattr(
+                    self.policy, "scheduled_mode", False
+                )
+                else "interactive"
+            )
+            outcome = controller.try_create_and_run(
+                user_input,
+                origin,
+                self._collect_prior_actions(),
+            )
+        except Exception as exc:
+            self.audit(
+                "plan_rejected",
+                {
+                    "reason": "escalation_error",
+                    "error": type(exc).__name__,
+                },
+            )
+            return None
+
+        if not outcome.handled:
+            self.audit(
+                "plan_rejected",
+                {
+                    "reason": outcome.reason,
+                    "detail": outcome.detail,
+                },
+            )
+            return None
+
+        self.audit(
+            "plan_executed",
+            {
+                "plan_id": outcome.plan_id,
+                "state": outcome.state,
+            },
+        )
+        return outcome.reply_text
 
 
     _RESEARCH_TRIGGERS = ("ابحث", "تجمع لي بيانات", "اجمع لي بيانات", "اجمع بيانات", "research")

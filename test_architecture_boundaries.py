@@ -66,6 +66,10 @@ ALLOWED_CORE_TO_FEATURES_IMPORTS = {
     ),
     ("core/feature_bridge.py", "features.whatsapp.composition"),
     ("core/feature_bridge.py", "features.meta_publish.composition"),
+    # Decision 1 (planning): the bridge is the only core module
+    # allowed to know the planning slice, exactly like every
+    # other slice above — composition/wiring only.
+    ("core/feature_bridge.py", "features.planning.composition"),
 }
 
 
