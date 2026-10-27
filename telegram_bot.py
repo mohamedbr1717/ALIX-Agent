@@ -684,15 +684,27 @@ def route_update(
             api.send_message(chat_id, "❌ خطأ: " + str(e)[:150])
         return offset
 
+    # /gmail — explicit command forms ONLY. Root cause #3 of
+    # the 2026-10-27 E2E failures: this shortcut used to fire
+    # on a bare substring match, so ANY sentence merely
+    # mentioning mail (e.g. the ordered 4-step task ending in
+    # «ابحث في Gmail…») was swallowed here with a canned
+    # latest-5 dump — the message never reached the
+    # Dispatcher, leaving no audit trail and no plan. The
+    # router transports; the agent decides. A shortcut may
+    # only claim a message that IS the command: "/gmail",
+    # "/gmail <query>", or a bare keyword alone.
     _gmail_keywords = (
         "بريد", "جميل", "gmail", "email",
         "ايميل", "رسائل", "inbox", "صندوق الوارد",
     )
-    _is_gmail_query = (
-        text.lower() == "/gmail"
-        or any(k in text.lower() for k in _gmail_keywords)
-    )
-    if _is_gmail_query:
+    _gmail_query: str | None = None
+    _text_norm = text.strip().lower()
+    if _text_norm == "/gmail" or _text_norm in _gmail_keywords:
+        _gmail_query = ""
+    elif _text_norm.startswith("/gmail "):
+        _gmail_query = text.strip()[len("/gmail "):].strip()
+    if _gmail_query is not None:
         # Direct Gmail fetch — bypasses LLM entirely.
         try:
             from dotenv import load_dotenv
@@ -700,7 +712,9 @@ def route_update(
             load_dotenv(Path(__file__).parent / ".env")
             from core.feature_bridge import build_gmail_search_controller
             ctrl = build_gmail_search_controller()
-            result = ctrl.handle({"query": "", "max_results": 5})
+            result = ctrl.handle(
+                {"query": _gmail_query, "max_results": 5}
+            )
             if not result.get("ok"):
                 api.send_message(
                     chat_id,
