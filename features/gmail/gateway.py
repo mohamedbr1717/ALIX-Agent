@@ -27,6 +27,8 @@ NET_TIMEOUT = 30
 _MAX_RESULTS = 25
 _MAX_BODY_CHARS = 20000
 _MAX_SUBJECT_CHARS = 300
+_HEADER_SCAN_CAP = 1000
+_HEADER_BATCH = 50
 
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
@@ -143,15 +145,17 @@ class GmailGateway:
             try:
                 imap.login(self.address, self.app_password)
                 imap.select("INBOX", readonly=True)
+                if query and not query.isascii():
+                    # Non-ASCII query: client-side header scan (see
+                    # _search_headers) — Gmail rejects every non-ASCII
+                    # SEARCH form, so the query never leaves the client.
+                    results = self._search_headers(imap, query, limit)
+                    if results is None:
+                        return {"ok": False, "error": "فشل البحث في Gmail."}
+                    return {"ok": True, "messages": results, "count": len(results)}
                 if query:
-                    # IMAP TEXT search with an explicit UTF-8 charset.
-                    # imaplib ASCII-encodes str criteria, so a non-ASCII
-                    # query (e.g. Arabic) passed as str raises
-                    # UnicodeEncodeError; send it as UTF-8 bytes instead.
-                    # Fall back to ALL on parse failure.
-                    typ, data = imap.uid(
-                        "search", "UTF-8", "TEXT", query.encode("utf-8")
-                    )
+                    # IMAP TEXT search; fall back to ALL on parse failure.
+                    typ, data = imap.uid("search", None, "TEXT", f'"{query}"')
                     if typ != "OK":
                         typ, data = imap.uid("search", None, "ALL")
                 else:
@@ -185,6 +189,60 @@ class GmailGateway:
                     pass
         except (imaplib.IMAP4.error, socket.error, OSError) as exc:
             return {"ok": False, "error": f"تعذر الاتصال بـ Gmail: {exc}"}
+
+    # -------------------------------------------------- header scan
+    def _search_headers(self, imap, query: str, limit: int) -> list | None:
+        """Client-side fallback for non-ASCII queries.
+
+        Gmail's IMAP SEARCH accepts ASCII criteria only: CHARSET,
+        8-bit literals, X-GM-RAW and raw 8-bit quoted strings all fail
+        with BAD (nine shapes verified live against Gmail, 2026-10-29),
+        and imaplib ASCII-encodes str criteria, so the query cannot be
+        sent at all. Instead the newest messages (up to
+        _HEADER_SCAN_CAP) are fetched in batches and the query is
+        matched locally against their decoded From / Subject headers.
+        Headers only — message bodies are not searched on this path.
+        Returns None when the UID listing itself fails.
+        """
+        typ, data = imap.uid("search", None, "ALL")
+        if typ != "OK":
+            return None
+        uids = (data[0] or b"").split()
+        uids = uids[-_HEADER_SCAN_CAP:]
+        needle = query.casefold()
+        results: list = []
+        for start in range(len(uids), 0, -_HEADER_BATCH):
+            batch = uids[max(0, start - _HEADER_BATCH):start]
+            typ, msg_data = imap.uid(
+                "fetch",
+                ",".join(u.decode("ascii") for u in batch),
+                "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])",
+            )
+            if typ != "OK" or not msg_data:
+                continue
+            parsed = []
+            for item in msg_data:
+                if not isinstance(item, tuple):
+                    continue
+                match = re.search(rb"UID (\d+)", item[0])
+                if not match:
+                    continue
+                msg = email.message_from_bytes(item[1])
+                parsed.append(
+                    {
+                        "uid": match.group(1).decode("ascii"),
+                        "from": _decode_header(msg.get("From")),
+                        "subject": _decode_header(msg.get("Subject")),
+                        "date": msg.get("Date", ""),
+                    }
+                )
+            for entry in reversed(parsed):
+                haystack = f"{entry['from']}\n{entry['subject']}".casefold()
+                if needle in haystack:
+                    results.append(entry)
+                    if len(results) >= limit:
+                        return results
+        return results
 
     # ------------------------------------------------------------ read
     def read(self, uid: str) -> dict:
