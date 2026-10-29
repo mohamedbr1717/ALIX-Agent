@@ -13,14 +13,51 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 _CALENDAR_API = "https://www.googleapis.com/calendar/v3"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 _NET_TIMEOUT = 30
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _LOCAL_TZ = ZoneInfo("Africa/Casablanca")
+except Exception:  # tzdata unavailable (rare) — Morocco is UTC+1
+    _LOCAL_TZ = timezone(timedelta(hours=1))
+
+_DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _qualify_bound(value: str, *, end_of_day: bool) -> str | None:
+    """Normalize one list-range bound to RFC 3339 with an offset.
+
+    Google Calendar rejects naive timeMin/timeMax with HTTP 400.
+    Naive values are read as Africa/Casablanca local time (the same
+    convention add_event uses); a date-only bound expands to the
+    start/end of that local day; already-qualified values keep their
+    offset. Unparseable input returns None so the caller fails closed
+    without calling Google.
+    """
+    text = (value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if _DATE_ONLY_RE.match(text) and end_of_day:
+        parsed = parsed.replace(hour=23, minute=59, second=59)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_LOCAL_TZ)
+    return parsed.isoformat()
 
 
 class GoogleCalendarGateway:
@@ -142,10 +179,18 @@ class GoogleCalendarGateway:
                     return {"ok": True, "data": {}}
                 return {"ok": True, "data": json.loads(raw)}
         except urllib.error.HTTPError as exc:
-            return {
-                "ok": False,
-                "error": f"HTTP {exc.code}",
-            }
+            result = {"ok": False, "error": f"HTTP {exc.code}"}
+            # Surface Google's own diagnostic message when present —
+            # a bare "HTTP 400" hides the cause. The "error" string
+            # itself is unchanged: delete_event matches it exactly.
+            try:
+                payload = json.loads(exc.read().decode("utf-8", errors="replace"))
+                detail = str(payload.get("error", {}).get("message", "")).strip()
+                if detail:
+                    result["detail"] = detail[:200]
+            except Exception:
+                pass
+            return result
         except Exception as exc:
             return {"ok": False, "error": type(exc).__name__}
 
@@ -156,10 +201,21 @@ class GoogleCalendarGateway:
     def list_events(
         self, time_min: str, time_max: str, max_results: int
     ) -> dict:
+        qualified_min = _qualify_bound(time_min, end_of_day=False)
+        qualified_max = _qualify_bound(time_max, end_of_day=True)
+        if qualified_min is None or qualified_max is None:
+            return {"ok": False, "error": "نطاق زمني غير صالح للإدراج."}
+        if datetime.fromisoformat(qualified_min) > datetime.fromisoformat(
+            qualified_max
+        ):
+            return {
+                "ok": False,
+                "error": "النطاق الزمني معكوس: البداية بعد النهاية.",
+            }
         query = urllib.parse.urlencode(
             {
-                "timeMin": time_min,
-                "timeMax": time_max,
+                "timeMin": qualified_min,
+                "timeMax": qualified_max,
                 "maxResults": max_results,
                 "singleEvents": "true",
                 "orderBy": "startTime",
@@ -167,6 +223,9 @@ class GoogleCalendarGateway:
         )
         result = self._request("GET", f"/calendars/primary/events?{query}")
         if not result["ok"]:
+            detail = result.get("detail")
+            if detail:
+                return {"ok": False, "error": f"{result['error']}: {detail}"}
             return result
         items = result["data"].get("items", [])
         events = []
