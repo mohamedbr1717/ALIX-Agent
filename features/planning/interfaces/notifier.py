@@ -1,14 +1,19 @@
 """PlanNotifier: PlanNotifierPort implementation (interfaces).
 
 Renders each semantic event with the pure formatters and
-delivers the text two ways: (1) an optional injected sender —
-production wiring passes core.scheduled_approval.notify_user,
-whose outbox the Telegram bot polls and delivers; (2) an
-in-memory buffer the caller can drain (the agent folds drained
-texts into its reply, which is the CLI delivery channel).
+delivers the text through exactly one channel: (1) an optional
+injected sender — production wiring passes
+core.scheduled_approval.notify_user, whose outbox the Telegram
+bot polls and delivers; (2) only when no sender is injected, or
+the sender raises, an in-memory buffer the caller can drain
+(the agent folds drained texts into its reply, which is the CLI
+delivery channel). The channels are exclusive on purpose: in
+Telegram both terminate in the same chat, so delivering through
+both duplicates every plan message.
 
 A failing sender NEVER propagates: notification failure must
-not fail a plan (port contract).
+not fail a plan (port contract) — the text falls back to the
+buffer instead.
 """
 from __future__ import annotations
 
@@ -91,12 +96,13 @@ class PlanNotifier(PlanNotifierPort):
     # ---------------------------------------------------------
 
     def _emit(self, text: str) -> None:
-        self._buffer.append(text)
         if self._sender is not None:
             try:
                 self._sender(text)
+                return
             except Exception as exc:  # never break a plan
                 print(
                     f"[planning] notification failed: {exc}",
                     file=sys.stderr,
                 )
+        self._buffer.append(text)
