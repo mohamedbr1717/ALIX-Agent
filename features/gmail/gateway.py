@@ -144,8 +144,14 @@ class GmailGateway:
                 imap.login(self.address, self.app_password)
                 imap.select("INBOX", readonly=True)
                 if query:
-                    # IMAP TEXT search; fall back to ALL on parse failure.
-                    typ, data = imap.uid("search", None, "TEXT", f'"{query}"')
+                    # IMAP TEXT search with an explicit UTF-8 charset.
+                    # imaplib ASCII-encodes str criteria, so a non-ASCII
+                    # query (e.g. Arabic) passed as str raises
+                    # UnicodeEncodeError; send it as UTF-8 bytes instead.
+                    # Fall back to ALL on parse failure.
+                    typ, data = imap.uid(
+                        "search", "UTF-8", "TEXT", query.encode("utf-8")
+                    )
                     if typ != "OK":
                         typ, data = imap.uid("search", None, "ALL")
                 else:
