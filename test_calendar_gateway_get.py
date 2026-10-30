@@ -91,6 +91,26 @@ class TestGatewayGetEvent(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertNotIn("found", result)
 
+    def test_cancelled_tombstone_is_absent(self):
+        # Google answers a deleted event's GET with 200 and
+        # status "cancelled" (live-proven 2026-10-30). Absent is
+        # absent: the read-back must not report it as found.
+        def cancelled(method, path):
+            return {
+                "ok": True,
+                "data": {
+                    "id": "evt-1",
+                    "status": "cancelled",
+                    "summary": "اجتماع اختبار التحقق",
+                    "start": {"dateTime": "2026-11-02T09:00:00Z"},
+                    "end": {"dateTime": "2026-11-02T10:00:00Z"},
+                },
+            }
+
+        gateway, _ = _gateway(cancelled)
+        result = gateway.get_event("evt-1")
+        self.assertEqual(result, {"ok": True, "found": False})
+
 
 class _FakeGateway:
     def __init__(self, result):

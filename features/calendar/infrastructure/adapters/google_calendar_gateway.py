@@ -284,8 +284,14 @@ class GoogleCalendarGateway:
         """Read one event back by id (Decision 2's verify channel).
 
         404/410 is a SUCCESSFUL read with found=False — the event
-        is absent. Any other failure keeps ok=False so callers can
-        tell "proven absent" from "could not read" (UNKNOWN).
+        is absent. A 200 whose resource carries status
+        "cancelled" is also absent: Google keeps a tombstone for
+        deleted events, and reporting it as found would disprove
+        every successful delete (proven live 2026-10-30, plan
+        p_20261030T223845_4703: the delete had worked, the
+        read-back read the tombstone). Any other failure keeps
+        ok=False so callers can tell "proven absent" from
+        "could not read" (UNKNOWN).
         """
         encoded = urllib.parse.quote(event_id, safe="")
         result = self._request(
@@ -296,6 +302,8 @@ class GoogleCalendarGateway:
                 return {"ok": True, "found": False}
             return result
         item = result["data"]
+        if item.get("status") == "cancelled":
+            return {"ok": True, "found": False}
         start = item.get("start", {})
         end = item.get("end", {})
         return {
