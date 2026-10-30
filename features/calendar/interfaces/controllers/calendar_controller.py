@@ -7,6 +7,7 @@ from typing import Any
 from features.calendar.application.dto.calendar import (
     AddEventRequest,
     DeleteEventRequest,
+    GetEventRequest,
     ListEventsRequest,
 )
 
@@ -25,6 +26,10 @@ class _BaseCalendarController:
             payload["events"] = result.events
         if result.event_id:
             payload["event_id"] = result.event_id
+        if result.found is not None:
+            payload["found"] = result.found
+        if result.event:
+            payload["event"] = result.event
         return payload
 
 
@@ -61,6 +66,16 @@ class DeleteEventController(_BaseCalendarController):
 
     def handle(self, arguments: dict) -> dict:
         request = DeleteEventRequest(
+            event_id=str(arguments.get("event_id", ""))
+        )
+        return self._result_dict(self._use_case.execute(request))
+
+
+class GetEventController(_BaseCalendarController):
+    """calendar_get tool handler (Decision 2 read-back channel)."""
+
+    def handle(self, arguments: dict) -> dict:
+        request = GetEventRequest(
             event_id=str(arguments.get("event_id", ""))
         )
         return self._result_dict(self._use_case.execute(request))

@@ -54,6 +54,7 @@ class PlanStepRecord:
     outcome_unknown: bool = False
     resolved_by_decomposition: bool = False
     verify: Optional[dict] = None
+    verify_outcome: Optional[dict] = None
     compensate: Optional[dict] = None
     created_at: str = ""
     updated_at: str = ""
@@ -77,6 +78,7 @@ class PlanStepRecord:
                 self.resolved_by_decomposition
             ),
             "verify": self.verify,
+            "verify_outcome": self.verify_outcome,
             "compensate": self.compensate,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -111,6 +113,7 @@ class PlanStepRecord:
                 data.get("resolved_by_decomposition", False)
             ),
             verify=data.get("verify"),
+            verify_outcome=data.get("verify_outcome"),
             compensate=data.get("compensate"),
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),

@@ -16,6 +16,26 @@ from .entities import MAX_STEPS_PER_PLAN
 #: a rejection (a draft may not smuggle state, ids or budgets).
 STEP_DRAFT_KEYS = frozenset({"intent", "tool", "args"})
 
+#: Decision 2: the ONE additional key a step draft may carry — a
+#: read-back verification spec. It is not state: it is validated
+#: field-by-field below before it is accepted, exactly like args.
+STEP_DRAFT_OPTIONAL_KEYS = frozenset({"verify"})
+
+#: The closed predicate registry (decision-02 spec §2). The
+#: read-back verifier evaluates exactly these names; anything
+#: else is rejected here and degrades to UNKNOWN there.
+VERIFY_PREDICATES = frozenset(
+    {"field_equals", "exists_matching", "absent_matching"}
+)
+
+#: Keys a verify spec may carry — no more.
+VERIFY_SPEC_KEYS = frozenset(
+    {"read_tool", "channel", "args", "predicate", "params"}
+)
+
+#: The only internal read-back channel in v1 (decision-02 §3).
+VERIFY_CHANNELS = frozenset({"memory"})
+
 #: The exact key set of a plan draft.
 PLAN_DRAFT_KEYS = frozenset({"steps"})
 
@@ -27,6 +47,7 @@ class ValidatedStep:
     intent: str
     tool: str
     args: dict
+    verify: Optional[dict] = None
 
 
 @dataclass(frozen=True)
@@ -37,12 +58,47 @@ class PlanRejected:
     detail: str = ""
 
 
+def validate_verify_spec(spec, read_tools) -> Optional[str]:
+    """Validate one Decision-2 verify spec; None means accepted.
+
+    ``read_tools`` is the set of tool names Policy classifies as
+    read-level, passed in as data. A spec is accepted only when
+    its read-back channel cannot write: either a read-level tool,
+    or the internal memory channel (read-only by construction).
+    """
+    if not isinstance(spec, dict):
+        return "spec_not_an_object"
+    keys = set(spec.keys())
+    if not keys <= VERIFY_SPEC_KEYS:
+        return f"spec_keys_outside: {sorted(keys - VERIFY_SPEC_KEYS)}"
+    has_tool = "read_tool" in spec
+    has_channel = "channel" in spec
+    if has_tool == has_channel:
+        return "spec_needs_exactly_one_channel"
+    if has_tool:
+        read_tool = spec["read_tool"]
+        if not isinstance(read_tool, str) or read_tool not in read_tools:
+            return f"read_tool_not_read_level: {read_tool!r}"
+    else:
+        channel = spec["channel"]
+        if channel not in VERIFY_CHANNELS:
+            return f"channel_unknown: {channel!r}"
+    predicate = spec.get("predicate")
+    if predicate not in VERIFY_PREDICATES:
+        return f"predicate_unknown: {predicate!r}"
+    for key in ("args", "params"):
+        if key in spec and not isinstance(spec[key], dict):
+            return f"{key}_not_an_object"
+    return None
+
+
 def validate_step_list(
     raw_steps,
     allowlist,
     tool_schemas: Mapping[str, frozenset],
     *,
     max_steps: int,
+    read_tools: frozenset = frozenset(),
 ) -> Union[list, PlanRejected]:
     """Validate a raw list of step drafts.
 
@@ -71,7 +127,10 @@ def validate_step_list(
             )
 
         keys = set(raw.keys())
-        if keys != STEP_DRAFT_KEYS:
+        if not (
+            STEP_DRAFT_KEYS <= keys
+            <= STEP_DRAFT_KEYS | STEP_DRAFT_OPTIONAL_KEYS
+        ):
             return PlanRejected(
                 "step_keys_mismatch",
                 f"index {index}: {sorted(keys)}",
@@ -105,11 +164,22 @@ def validate_step_list(
                 f"index {index}: {tool} {sorted(extra)}",
             )
 
+        verify = None
+        if "verify" in raw:
+            reason = validate_verify_spec(raw["verify"], read_tools)
+            if reason is not None:
+                return PlanRejected(
+                    "verify_spec_invalid",
+                    f"index {index}: {reason}",
+                )
+            verify = dict(raw["verify"])
+
         validated.append(
             ValidatedStep(
                 intent=intent.strip(),
                 tool=tool,
                 args=dict(args),
+                verify=verify,
             )
         )
 
@@ -120,6 +190,8 @@ def validate_plan_draft(
     draft,
     allowlist,
     tool_schemas: Mapping[str, frozenset],
+    *,
+    read_tools: frozenset = frozenset(),
 ) -> Union[list, PlanRejected]:
     """Validate a full plan draft ``{"steps": [...]}``.
 
@@ -140,4 +212,5 @@ def validate_plan_draft(
         allowlist,
         tool_schemas,
         max_steps=MAX_STEPS_PER_PLAN,
+        read_tools=read_tools,
     )

@@ -31,6 +31,7 @@ from features.planning.application.ports.tool_dispatch import (
     ToolDispatchPort,
 )
 from features.planning.application.ports.verifier import (
+    Verdict,
     VerifierPort,
 )
 from features.planning.application.use_cases.decompose_step import (
@@ -126,27 +127,71 @@ class RunPlanUseCase:
             plan.awaiting_step_id = None
 
             if result.get("ok"):
-                if self._verifier.verify(step, result):
+                outcome = self._verifier.verify(step, result)
+                step.verify_outcome = outcome.to_record()
+                if outcome.verdict is Verdict.VERIFIED:
                     plan.transition_step(
                         step.step_id,
                         StepState.SUCCEEDED,
                         now=iso(self._clock()),
                     )
                     step.result_ref = summarize_result(result)
-                else:
+                elif outcome.verdict is Verdict.FAILED:
+                    # Decision 2 — owner's ruling (2026-10-30): a
+                    # positively disproven effect escalates
+                    # DIRECTLY. The decomposer is never consulted
+                    # and no replan is consumed: re-dispatching
+                    # blind after a false "success" could duplicate
+                    # the side effect. The one-line contradicting
+                    # evidence rides in step.error, which the
+                    # escalation format already prints.
                     plan.transition_step(
                         step.step_id,
                         StepState.FAILED,
                         now=iso(self._clock()),
                     )
                     step.error = (
-                        "فشل التحقق من نتيجة الخطوة "
-                        "(قرار 2 سيعمّق هذا الحكم)."
+                        f"فشل التحقق: {outcome.observed}"
                     )
+                    plan.escalated = True
                     self._save(plan)
-                    if not self._decompose.execute(plan, step):
-                        escalated_notified = plan.escalated
-                        break
+                    if self._notifier is not None:
+                        self._notifier.escalated(
+                            plan,
+                            step,
+                            "فشل التحقق من نتيجة الخطوة (قرار 2).",
+                        )
+                    escalated_notified = True
+                    stopped_reason = "verification_failed"
+                    break
+                else:  # Verdict.UNKNOWN
+                    # No usable evidence: the step is NOT counted
+                    # as succeeded — it blocks with outcome_unknown
+                    # and the owner decides (Decision 2 spec §4).
+                    plan.transition_step(
+                        step.step_id,
+                        StepState.BLOCKED,
+                        blocked_reason=(
+                            BlockedReason.VERIFICATION_UNKNOWN
+                        ),
+                        now=iso(self._clock()),
+                    )
+                    step.outcome_unknown = True
+                    step.error = (
+                        "تعذّر التحقق من نتيجة الخطوة: "
+                        f"{outcome.observed}"
+                    )
+                    plan.escalated = True
+                    self._save(plan)
+                    if self._notifier is not None:
+                        self._notifier.escalated(
+                            plan,
+                            step,
+                            "تعذّر التحقق من نتيجة الخطوة (قرار 2).",
+                        )
+                    escalated_notified = True
+                    stopped_reason = "verification_unknown"
+                    break
                 self._save(plan)
                 continue
 

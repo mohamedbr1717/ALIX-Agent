@@ -21,3 +21,13 @@ class CalendarGateway(Protocol):
     def delete_event(self, event_id: str) -> dict:
         """Return {"ok": bool, "error": ...}."""
         ...
+
+    def get_event(self, event_id: str) -> dict:
+        """Return {"ok": bool, "found": bool, "event": {...}}.
+
+        ``found`` is meaningful only when ``ok`` is True: a 404/410
+        from the provider is a successful read that found nothing
+        ({"ok": True, "found": False}); any other failure is
+        {"ok": False, ...} and proves nothing either way.
+        """
+        ...

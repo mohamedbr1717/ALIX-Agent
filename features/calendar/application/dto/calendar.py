@@ -27,8 +27,17 @@ class DeleteEventRequest:
 
 
 @dataclass(frozen=True)
+class GetEventRequest:
+    event_id: str
+
+
+@dataclass(frozen=True)
 class CalendarResult:
     ok: bool
     message: str
     events: list = field(default_factory=list)
     event_id: str | None = None
+    #: Decision 2 (calendar_get only): whether the read found the
+    #: event, and the event itself when it did.
+    found: bool | None = None
+    event: dict | None = None

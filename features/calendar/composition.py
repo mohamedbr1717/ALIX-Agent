@@ -8,6 +8,9 @@ from features.calendar.application.use_cases.add_event import AddEventUseCase
 from features.calendar.application.use_cases.delete_event import (
     DeleteEventUseCase,
 )
+from features.calendar.application.use_cases.get_event import (
+    GetEventUseCase,
+)
 from features.calendar.application.use_cases.list_events import (
     ListEventsUseCase,
 )
@@ -17,6 +20,7 @@ from features.calendar.infrastructure.adapters.google_calendar_gateway import (
 from features.calendar.interfaces.controllers.calendar_controller import (
     AddEventController,
     DeleteEventController,
+    GetEventController,
     ListEventsController,
 )
 
@@ -24,7 +28,7 @@ from features.calendar.interfaces.controllers.calendar_controller import (
 def build_calendar_controllers(
     policy: Any,
 ) -> dict[str, Any]:
-    """Build the three calendar controllers sharing one gateway."""
+    """Build the four calendar controllers sharing one gateway."""
     gateway = GoogleCalendarGateway()
     return {
         "calendar_list": ListEventsController(
@@ -35,5 +39,8 @@ def build_calendar_controllers(
         ),
         "calendar_delete": DeleteEventController(
             DeleteEventUseCase(gateway=gateway)
+        ),
+        "calendar_get": GetEventController(
+            GetEventUseCase(gateway=gateway)
         ),
     }

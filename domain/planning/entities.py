@@ -61,8 +61,12 @@ class PlanStep:
     blocked_reason: Optional[BlockedReason] = None
     outcome_unknown: bool = False
     resolved_by_decomposition: bool = False
-    #: Reserved for Decision 2 (verification) — opaque in Decision 1.
+    #: Decision 2 (verification): the read-back spec for this step
+    #: (decision-02 spec §2) and its recorded outcome — the verdict
+    #: dict the verifier produced, or None when the step has not
+    #: been verified (or predates Decision 2).
     verify: Optional[dict] = None
+    verify_outcome: Optional[dict] = None
     #: Reserved for Decision 3 (recovery/saga) — opaque in Decision 1.
     compensate: Optional[dict] = None
     created_at: str = ""

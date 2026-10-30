@@ -48,6 +48,9 @@ from features.planning.infrastructure.adapters.contract_ok_verifier import (
 from features.planning.infrastructure.adapters.json_plan_store import (
     JsonPlanStore,
 )
+from features.planning.infrastructure.adapters.readback_verifier import (
+    ReadBackVerifier,
+)
 from features.planning.infrastructure.adapters.llm_planner import (
     LLMPlannerAdapter,
 )
@@ -120,6 +123,9 @@ def build_planning_controller(
     tool_schemas: Optional[dict] = None,
     destructive_tools: frozenset = frozenset(),
     confirming_tools: frozenset = frozenset(),
+    read_tools: frozenset = frozenset(),
+    tool_levels: Optional[dict] = None,
+    memory_search: Optional[Callable] = None,
 ) -> PlanningController:
     """Full controller: creation + deterministic execution.
 
@@ -148,8 +154,10 @@ def build_planning_controller(
             confirming_tools=frozenset(confirming_tools),
             clock=clock,
             notifier=notifier,
+            read_tools=frozenset(read_tools),
         )
         if execute_tool is not None:
+            dispatch = CallableToolDispatch(execute_tool)
             decompose = DecomposeStepUseCase(
                 planner=planner,
                 store=store,
@@ -158,10 +166,27 @@ def build_planning_controller(
                 destructive_tools=frozenset(destructive_tools),
                 clock=clock,
                 notifier=notifier,
+                read_tools=frozenset(read_tools),
             )
+            # Decision 2: read-back verification exists only when
+            # its wiring is present — the Policy tool-level table
+            # is what tells the verifier which steps are exempt
+            # reads and which read tools may serve as channels.
+            # Without it, this seam keeps the Decision-1 contract
+            # verifier rather than degrading every step to
+            # UNKNOWN. Production always passes the table (the
+            # core bridge factory derives it from Policy).
+            if tool_levels is not None:
+                verifier = ReadBackVerifier(
+                    dispatch=dispatch,
+                    memory_search=memory_search,
+                    tool_levels=tool_levels,
+                )
+            else:
+                verifier = ContractOkVerifier()
             run_plan = RunPlanUseCase(
-                dispatch=CallableToolDispatch(execute_tool),
-                verifier=ContractOkVerifier(),
+                dispatch=dispatch,
+                verifier=verifier,
                 store=store,
                 decompose=decompose,
                 clock=clock,

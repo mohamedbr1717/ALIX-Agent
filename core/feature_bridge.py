@@ -169,6 +169,7 @@ def build_migrated_tool_handlers(
         "calendar_list": lambda **kwargs: calendar_controllers["calendar_list"].handle(kwargs),
         "calendar_add": lambda **kwargs: calendar_controllers["calendar_add"].handle(kwargs),
         "calendar_delete": lambda **kwargs: calendar_controllers["calendar_delete"].handle(kwargs),
+        "calendar_get": lambda **kwargs: calendar_controllers["calendar_get"].handle(kwargs),
         "plan_status": lambda **kwargs: planning_admin_controller.handle_status(kwargs),
         "plan_cancel": lambda **kwargs: planning_admin_controller.handle_cancel(kwargs),
         "history": lambda **kwargs: history_controllers["history"].handle(kwargs),
@@ -326,8 +327,11 @@ def build_planning_controller(
     passes the existing Policy/confirmation path (spec §4.4) —
     no private executor exists. Owner notifications go to the
     scheduled-approval outbox, which telegram_bot already polls
-    and delivers. ``memory`` is accepted per the spec signature
-    and reserved for later decisions; Decision 1 does not read it.
+    and delivers. ``memory`` is accepted per the spec signature;
+    Decision 1 did not read it — Decision 2 does: its bound
+    ``search`` becomes the read-back verifier's internal memory
+    channel (a saved fact is verified by re-reading the store,
+    never by trusting the write result).
     """
     from core import scheduled_approval
     from features.planning.composition import (
@@ -342,6 +346,11 @@ def build_planning_controller(
         name
         for name, level in permissions.items()
         if level == "destructive"
+    )
+    read_tools = frozenset(
+        name
+        for name, level in permissions.items()
+        if level == "read"
     )
     confirming_tools = frozenset(
         name
@@ -358,4 +367,7 @@ def build_planning_controller(
         tool_schemas=tool_schemas,
         destructive_tools=destructive_tools,
         confirming_tools=confirming_tools,
+        read_tools=read_tools,
+        tool_levels=permissions,
+        memory_search=getattr(memory, "search", None),
     )

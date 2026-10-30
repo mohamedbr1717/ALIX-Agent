@@ -29,6 +29,10 @@ class BlockedReason(Enum):
     APPROVAL_INTERRUPTED = "approval_interrupted"
     INTERRUPTED_UNKNOWN_OUTCOME = "interrupted_unknown_outcome"
     DEPENDENCY_HALTED = "dependency_halted"
+    #: Decision 2: the step executed and its tool said ok, but the
+    #: read-back needed to verify the effect could not be performed
+    #: or produced no usable evidence — outcome stays unknown.
+    VERIFICATION_UNKNOWN = "verification_unknown"
 
 
 class PlanState(Enum):

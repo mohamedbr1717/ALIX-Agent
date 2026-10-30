@@ -642,6 +642,24 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "calendar_get",
+            "description": "قراءة موعد واحد من التقويم بواسطة معرفه (قراءة فقط). يعيد found=false إن كان الموعد غائبًا.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "string",
+                        "description": "معرف الموعد (من calendar_list أو نتيجة calendar_add)."
+                    }
+                },
+                "required": ["event_id"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
             "name": "history",
             "description": "عرض سجل إجراءات الوكيل الأخيرة (قراءة فقط). يظهر الأدوات المنفذة مع الوقت والحالة وما إذا كانت قابلة للتراجع.",
             "parameters": {

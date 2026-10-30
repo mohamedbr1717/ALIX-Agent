@@ -144,6 +144,10 @@ class _ConfigMixin:
                 "allowed": {"event_id"},
                 "required": {"event_id"},
             },
+            "calendar_get": {
+                "allowed": {"event_id"},
+                "required": {"event_id"},
+            },
             "history": {
                 "allowed": {"limit"},
                 "required": set(),
@@ -272,6 +276,7 @@ class _ConfigMixin:
             "calendar_list": "read",
             "calendar_add": "execute",
             "calendar_delete": "destructive",
+            "calendar_get": "read",
             "history": "read",
             "undo": "destructive",
         }

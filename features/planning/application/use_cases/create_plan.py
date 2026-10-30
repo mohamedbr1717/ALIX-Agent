@@ -64,6 +64,7 @@ class CreatePlanUseCase:
         confirming_tools: frozenset,
         clock: Callable,
         notifier: Optional[PlanNotifierPort] = None,
+        read_tools: frozenset = frozenset(),
     ):
         self._planner = planner
         self._store = store
@@ -73,6 +74,7 @@ class CreatePlanUseCase:
         self._confirming_tools = confirming_tools
         self._clock = clock
         self._notifier = notifier
+        self._read_tools = read_tools
 
     def execute(
         self, request: CreatePlanRequest
@@ -107,7 +109,10 @@ class CreatePlanUseCase:
             )
 
         validated = validate_plan_draft(
-            draft, self._allowlist, self._tool_schemas
+            draft,
+            self._allowlist,
+            self._tool_schemas,
+            read_tools=self._read_tools,
         )
         if isinstance(validated, PlanRejected):
             return CreatePlanOutcome(
@@ -153,6 +158,7 @@ class CreatePlanUseCase:
                     parent_step_id=None,
                     idempotency_key=f"{plan_id}:{step_id}",
                     blocked_reason=blocked_reason,
+                    verify=vstep.verify,
                     created_at=now_iso,
                     updated_at=now_iso,
                 )

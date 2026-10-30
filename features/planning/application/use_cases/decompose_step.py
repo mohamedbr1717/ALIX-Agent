@@ -49,6 +49,7 @@ class DecomposeStepUseCase:
         destructive_tools: frozenset,
         clock: Callable,
         notifier: Optional[PlanNotifierPort] = None,
+        read_tools: frozenset = frozenset(),
     ):
         self._planner = planner
         self._store = store
@@ -57,6 +58,7 @@ class DecomposeStepUseCase:
         self._destructive_tools = destructive_tools
         self._clock = clock
         self._notifier = notifier
+        self._read_tools = read_tools
 
     # ---------------------------------------------------------
 
@@ -121,6 +123,7 @@ class DecomposeStepUseCase:
             self._allowlist,
             self._tool_schemas,
             max_steps=MAX_SUBSTEPS,
+            read_tools=self._read_tools,
         )
         if isinstance(validated, PlanRejected):
             self._save(plan)
@@ -171,6 +174,7 @@ class DecomposeStepUseCase:
             self._allowlist,
             self._tool_schemas,
             max_steps=MAX_STEPS_PER_PLAN,
+            read_tools=self._read_tools,
         )
         if isinstance(validated, PlanRejected):
             self._save(plan)
@@ -258,6 +262,7 @@ class DecomposeStepUseCase:
             parent_step_id=parent_step_id,
             idempotency_key=f"{plan.plan_id}:{step_id}",
             blocked_reason=blocked_reason,
+            verify=vstep.verify,
             created_at=now_iso,
             updated_at=now_iso,
         )

@@ -22,6 +22,8 @@ from features.planning.application.ports.tool_dispatch import (
     ToolDispatchPort,
 )
 from features.planning.application.ports.verifier import (
+    VerificationOutcome,
+    Verdict,
     VerifierPort,
 )
 from features.planning.application.use_cases.create_plan import (
@@ -471,9 +473,17 @@ class TestDecomposition(ExecutorCase):
 
 class TestVerifierSeam(ExecutorCase):
     def test_vetoing_verifier_fails_the_step(self):
+        # Decision 2 supersedes the Decision-1 bool seam: a FAILED
+        # verdict fails the step and escalates DIRECTLY — the
+        # decomposer is never consulted and no replan is consumed
+        # (owner's ruling, 2026-10-30).
         class VetoVerifier(VerifierPort):
             def verify(self, step, result):
-                return False
+                return VerificationOutcome(
+                    verdict=Verdict.FAILED,
+                    channel="test",
+                    observed="الدليل يناقض الأثر",
+                )
 
         planner = FakePlanner(
             plan_draft={"steps": [draft_step()]},
@@ -484,8 +494,41 @@ class TestVerifierSeam(ExecutorCase):
         outcome = self.build_run(
             planner, dispatch, verifier=VetoVerifier()
         ).execute(plan)
-        self.assertIs(plan.step("s1").state, StepState.FAILED)
+        step = plan.step("s1")
+        self.assertIs(step.state, StepState.FAILED)
         self.assertIs(outcome.state, PlanState.ESCALATED)
+        self.assertEqual(plan.replans_used, 0)
+        self.assertEqual(
+            step.verify_outcome["verdict"], "failed"
+        )
+        self.assertIn("فشل التحقق", step.error)
+
+    def test_unknown_verifier_blocks_the_step(self):
+        class UnknownVerifier(VerifierPort):
+            def verify(self, step, result):
+                return VerificationOutcome(
+                    verdict=Verdict.UNKNOWN,
+                    channel="test",
+                    observed="لا دليل",
+                )
+
+        planner = FakePlanner(
+            plan_draft={"steps": [draft_step()]},
+            decompose_script=[{"mode": "give_up"}],
+        )
+        plan = self.create(planner, None)
+        dispatch = FakeDispatch()  # tool says ok
+        outcome = self.build_run(
+            planner, dispatch, verifier=UnknownVerifier()
+        ).execute(plan)
+        step = plan.step("s1")
+        self.assertIs(step.state, StepState.BLOCKED)
+        self.assertTrue(step.outcome_unknown)
+        self.assertEqual(
+            step.blocked_reason.value, "verification_unknown"
+        )
+        self.assertIs(outcome.state, PlanState.BLOCKED)
+        self.assertEqual(plan.replans_used, 0)
 
 
 class TestSafeFallback(ExecutorCase):

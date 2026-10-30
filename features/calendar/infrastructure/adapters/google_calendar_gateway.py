@@ -279,3 +279,35 @@ class GoogleCalendarGateway:
                 return {"ok": True, "already_deleted": True}
             return result
         return {"ok": True}
+
+    def get_event(self, event_id: str) -> dict:
+        """Read one event back by id (Decision 2's verify channel).
+
+        404/410 is a SUCCESSFUL read with found=False — the event
+        is absent. Any other failure keeps ok=False so callers can
+        tell "proven absent" from "could not read" (UNKNOWN).
+        """
+        encoded = urllib.parse.quote(event_id, safe="")
+        result = self._request(
+            "GET", f"/calendars/primary/events/{encoded}"
+        )
+        if not result["ok"]:
+            if result.get("error") in ("HTTP 404", "HTTP 410"):
+                return {"ok": True, "found": False}
+            return result
+        item = result["data"]
+        start = item.get("start", {})
+        end = item.get("end", {})
+        return {
+            "ok": True,
+            "found": True,
+            "event": {
+                "event_id": item.get("id", ""),
+                "title": item.get("summary", ""),
+                "start": start.get(
+                    "dateTime", start.get("date", "")
+                ),
+                "end": end.get("dateTime", end.get("date", "")),
+                "description": item.get("description", ""),
+            },
+        }

@@ -45,6 +45,7 @@ def _step_to_record(step: PlanStep) -> PlanStepRecord:
             step.resolved_by_decomposition
         ),
         verify=step.verify,
+        verify_outcome=step.verify_outcome,
         compensate=step.compensate,
         created_at=step.created_at,
         updated_at=step.updated_at,
@@ -74,6 +75,7 @@ def _step_from_record(record: PlanStepRecord) -> PlanStep:
             record.resolved_by_decomposition
         ),
         verify=record.verify,
+        verify_outcome=record.verify_outcome,
         compensate=record.compensate,
         created_at=record.created_at,
         updated_at=record.updated_at,
