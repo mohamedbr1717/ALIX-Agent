@@ -10,6 +10,7 @@ production adapter wraps the existing execute_tool/Policy path.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -62,6 +63,44 @@ def is_approval_denial(result) -> bool:
         return True
     error = str(result.get("error") or "")
     return error.startswith(APPROVAL_DENIED_ERROR_PREFIX)
+
+
+#: Fetch-class tools: a fetch failure is an infrastructure
+#: event (protected page, timeout), not a step that needs
+#: smarter sub-steps (planner fetch-budget fix, 2026-10-31 —
+#: plan p_20261030T232235_fdf7 burned its whole replan budget
+#: decomposing one HTTP 202 into invented fetch/extract
+#: steps). Fetch failures therefore NEVER reach the
+#: decomposer: one alternate-URL retry, then a terminal
+#: failure whose escalation carries the collected evidence.
+FETCH_TOOLS = frozenset({"web_fetch"})
+
+_URL_RE = re.compile(r"https?://[^\s\"'<>\)\]]+")
+
+
+def alternate_fetch_url(plan: Plan, failed_step: PlanStep):
+    """First URL from a succeeded web_search in this plan (or
+    in the prior actions the plan inherited) that the failed
+    step has not already tried — None when there is none."""
+    current = str((failed_step.args or {}).get("url") or "")
+    texts = [
+        s.result_ref
+        for s in plan.steps
+        if s.tool == "web_search"
+        and s.state is StepState.SUCCEEDED
+        and s.result_ref
+    ]
+    texts += [
+        pa.result_ref
+        for pa in plan.prior_actions
+        if pa.tool == "web_search" and pa.result_ref
+    ]
+    for text in texts:
+        for url in _URL_RE.findall(text):
+            url = url.rstrip(".,;")
+            if url and url != current:
+                return url
+    return None
 
 
 @dataclass
@@ -125,6 +164,20 @@ class RunPlanUseCase:
             result = self._dispatch_one(step)
 
             plan.awaiting_step_id = None
+
+            if (
+                not result.get("ok")
+                and step.tool in FETCH_TOOLS
+                and step.attempts == 1
+            ):
+                # Fetch-budget fix: exactly ONE alternate-URL
+                # retry, inline, before the failure is recorded
+                # — a different source for the same information,
+                # never a decomposition into invented sub-steps.
+                alt_url = alternate_fetch_url(plan, step)
+                if alt_url is not None:
+                    step.args = {**step.args, "url": alt_url}
+                    result = self._dispatch_one(step)
 
             if result.get("ok"):
                 outcome = self._verifier.verify(step, result)
@@ -218,6 +271,27 @@ class RunPlanUseCase:
             )
             step.error = result_error_text(result)
             self._save(plan)
+
+            if step.tool in FETCH_TOOLS:
+                # Fetch-budget fix: the decomposer is NEVER
+                # consulted for a fetch failure and the replan
+                # budget stays untouched. The step fails
+                # terminally and the escalation carries what
+                # the plan collected (format_escalation's
+                # evidence section) — never an empty escalation.
+                plan.escalated = True
+                self._save(plan)
+                if self._notifier is not None:
+                    self._notifier.escalated(
+                        plan,
+                        step,
+                        "فشل الجلب نهائيًا (محاولة بديلة واحدة "
+                        "كحد أقصى) — لم يُفكَّك ولم تُمسّ ميزانية "
+                        "إعادة التخطيط.",
+                    )
+                escalated_notified = True
+                stopped_reason = "fetch_failed"
+                break
 
             if not self._decompose.execute(plan, step):
                 escalated_notified = plan.escalated

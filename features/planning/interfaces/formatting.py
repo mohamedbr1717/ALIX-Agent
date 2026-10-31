@@ -121,6 +121,21 @@ def format_escalation(
         lines.append(
             "اكتمل: " + "؛ ".join(done)
         )
+    # Evidence-carrying escalation (2026-10-31): what the
+    # succeeded steps actually collected rides along — the
+    # stored one-line result summaries — so an escalated
+    # research plan still hands the owner a partial answer
+    # instead of a bare failure (plan p_20261030T232235_fdf7
+    # escalated empty despite a successful search step).
+    evidence = [
+        (s.intent, s.result_ref)
+        for s in plan.steps
+        if s.state is StepState.SUCCEEDED and s.result_ref
+    ]
+    if evidence:
+        lines.append("ما جُمع:")
+        for intent, ref in evidence:
+            lines.append(f"- {intent}: {ref}")
     if failed_step is not None:
         lines.append(
             f"فشل: {failed_step.intent} — "

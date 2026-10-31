@@ -42,6 +42,19 @@ from features.planning.application.use_cases.helpers import (
 )
 
 
+#: Tools whose only effect is retrieving information for an
+#: answer. A plan built ONLY from these is not a plan at all —
+#: it is a question wearing a plan's clothes (planner question-
+#: gate fix, 2026-10-31: a pure Q&A endurance-escalated into
+#: plan p_20261030T232235_fdf7 and died there with no answer).
+#: Such drafts are declined at creation and the caller falls
+#: back to the plain loop / research path, which answers from
+#: search results directly. Any single step outside this set
+#: (a write, a send, a memory fact, ...) makes the draft a
+#: genuine plan again — the owner's mixed-request ruling.
+RESEARCH_ONLY_TOOLS = frozenset({"web_search", "web_fetch"})
+
+
 @dataclass
 class CreatePlanOutcome:
     created: bool
@@ -126,6 +139,22 @@ class CreatePlanUseCase:
                 created=False,
                 reason="below_min_steps",
                 detail=f"{len(validated)} steps",
+            )
+
+        if all(
+            vstep.tool in RESEARCH_ONLY_TOOLS for vstep in validated
+        ):
+            # Question-gate (2026-10-31): an all-research draft
+            # is an information request, not a task — decline so
+            # the agent answers it in the plain loop instead of
+            # stranding it in the plan executor.
+            return CreatePlanOutcome(
+                created=False,
+                reason="research_not_plannable",
+                detail=(
+                    "all steps are research reads: "
+                    + ", ".join(v.tool for v in validated)
+                ),
             )
 
         now = self._clock()
