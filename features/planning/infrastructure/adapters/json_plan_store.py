@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional
 
@@ -43,6 +44,33 @@ class JsonPlanStore(PlanStorePort):
     @property
     def path(self) -> Path:
         return self._path
+
+    @contextmanager
+    def locked(self):
+        """Exclusive advisory lock on the store (Decision 3).
+
+        Two processes (Telegram bot, scheduler daemon) share
+        this file; crash recovery at boot must be serialized so
+        exactly one of them normalizes — and exactly one digest
+        is sent. POSIX flock where available; a no-op elsewhere
+        (recovery stays correct, just unserialized).
+        """
+        try:
+            import fcntl
+        except ImportError:
+            yield
+            return
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self._path.with_name(self._path.name + ".lock")
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
 
     # ---------------------------------------------------------
     # PlanStorePort

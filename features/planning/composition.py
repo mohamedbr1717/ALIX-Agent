@@ -78,7 +78,7 @@ def _store_for(base_dir) -> JsonPlanStore:
     )
 
 
-def _admin_parts(store, clock, notifier):
+def _admin_parts(store, clock, notifier, verifier=None):
     return {
         "get_plan": GetPlanUseCase(store=store, clock=clock),
         "list_plans": ListPlansUseCase(
@@ -90,8 +90,16 @@ def _admin_parts(store, clock, notifier):
         "release_step": ReleaseStepUseCase(
             store=store, clock=clock
         ),
+        # Decision 3: the read-back verifier (when the full
+        # wiring built one) also serves recovery — report-only
+        # evidence on interrupted steps. The contract verifier
+        # is never passed here: its verdicts trust the dispatch
+        # result, and at recovery there is no result to trust.
         "recover_plans": RecoverPlansUseCase(
-            store=store, clock=clock, notifier=notifier
+            store=store,
+            clock=clock,
+            notifier=notifier,
+            verifier=verifier,
         ),
     }
 
@@ -136,6 +144,7 @@ def build_planning_controller(
     """
     clock = clock or system_clock
     store = _store_for(base_dir)
+    recovery_verifier = None
     notifier: PlanNotifierPort = PlanNotifier(
         sender=notify_fn, clock=clock
     )
@@ -182,6 +191,7 @@ def build_planning_controller(
                     memory_search=memory_search,
                     tool_levels=tool_levels,
                 )
+                recovery_verifier = verifier
             else:
                 verifier = ContractOkVerifier()
             run_plan = RunPlanUseCase(
@@ -194,7 +204,9 @@ def build_planning_controller(
             )
 
     return PlanningController(
-        **_admin_parts(store, clock, notifier),
+        **_admin_parts(
+            store, clock, notifier, verifier=recovery_verifier
+        ),
         create_plan=create_plan,
         run_plan=run_plan,
         notifier=notifier,  # type: ignore[arg-type]

@@ -3,8 +3,10 @@
 Records are the persisted shape of a plan (frozen dataclasses
 with to_dict/from_dict, mirroring TaskRecord in the scheduler
 slice). They reflect the domain fields of spec §2.2/§2.3 exactly;
-the reserved ``verify``/``compensate`` fields are copied verbatim
-and never interpreted in Decision 1. ``PlanRecord.state`` is the
+the ``verify``/``verify_outcome`` fields are copied verbatim
+(Decision 2's payloads). Decision 3 retired the reserved
+``compensate`` field; old records carrying the key still load —
+it is ignored here and dropped on re-save. ``PlanRecord.state`` is the
 derived plan state at save time — informational for human
 readers; the domain derivation is recomputed on every load and
 remains the only source of truth (spec §2.5).
@@ -55,7 +57,6 @@ class PlanStepRecord:
     resolved_by_decomposition: bool = False
     verify: Optional[dict] = None
     verify_outcome: Optional[dict] = None
-    compensate: Optional[dict] = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -79,7 +80,6 @@ class PlanStepRecord:
             ),
             "verify": self.verify,
             "verify_outcome": self.verify_outcome,
-            "compensate": self.compensate,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -114,7 +114,6 @@ class PlanStepRecord:
             ),
             verify=data.get("verify"),
             verify_outcome=data.get("verify_outcome"),
-            compensate=data.get("compensate"),
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),
         )

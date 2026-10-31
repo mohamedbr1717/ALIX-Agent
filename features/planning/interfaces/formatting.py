@@ -174,4 +174,10 @@ def format_recovery(plans: List[Plan], now: datetime) -> str:
             f"- {plan.goal} ({plan.plan_id}) — "
             f"{_STATE_LABELS[state]}"
         )
+        # Decision 3 (report-only read-back): the recovery
+        # evidence recorded on interrupted steps rides in the
+        # digest so the owner's decision is an informed one.
+        for step in plan.steps:
+            if step.state is StepState.BLOCKED and step.error:
+                lines.append(f"  - {step.intent}: {step.error}")
     return "\n".join(lines)

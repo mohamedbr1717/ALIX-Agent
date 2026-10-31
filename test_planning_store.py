@@ -67,7 +67,6 @@ def sample_record(plan_id="p_20261027T120000_ab12", **overrides):
                 depth=0,
                 idempotency_key=f"{plan_id}:s2",
                 verify={"mode": "readback"},
-                compensate={"tool": "calendar_add"},
                 created_at="2026-10-27T12:00:00+00:00",
                 updated_at="2026-10-27T12:00:00+00:00",
             ),
@@ -118,13 +117,11 @@ class TestRoundtrip(StoreCase):
 
         loaded = self.store.get(record.plan_id)
         self.assertEqual(loaded, record)
-        # Reserved fields cross verbatim, uninterpreted.
+        # The verify field crosses verbatim, uninterpreted.
+        # (Decision 3 retired compensate: see
+        # test_planning_decision3 for the legacy-load proof.)
         self.assertEqual(
             loaded.steps[1].verify, {"mode": "readback"}
-        )
-        self.assertEqual(
-            loaded.steps[1].compensate,
-            {"tool": "calendar_add"},
         )
         self.assertEqual(
             loaded.steps[2].parent_step_id, "s2"

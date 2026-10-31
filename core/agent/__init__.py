@@ -392,6 +392,18 @@ class ALIXAgent(
                 {"error": type(exc).__name__},
             )
 
+    def recover_planning_at_boot(self):
+        """Decision 3: crash-normalize stored plans at process
+        boot, BEFORE any work is accepted — not lazily at first
+        use, which left a ghost 'running' state visible from
+        boot until the first message. Same once-per-instance,
+        fail-soft semantics as the in-run safety net; entry
+        points (Telegram dispatcher, CLI main) call this right
+        after constructing the agent. The scheduler daemon
+        builds a fresh agent per task, so its existing in-run
+        call already precedes that task's work."""
+        self._ensure_planning_recovery()
+
     def _collect_prior_actions(self):
         """(tool, args, raw_result_text) triples for everything
         already executed interactively in this run — the plan

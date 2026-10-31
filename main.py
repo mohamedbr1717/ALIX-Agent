@@ -287,6 +287,10 @@ def main() -> int:
 
         agent = ALIXAgent()
 
+        # Decision 3: normalize stored plans at boot, before
+        # the first command is accepted.
+        agent.recover_planning_at_boot()
+
     except Exception as exc:
 
         print(

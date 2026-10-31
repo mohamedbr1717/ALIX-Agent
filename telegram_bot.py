@@ -444,6 +444,9 @@ class Dispatcher(threading.Thread):
         self._agent = ALIXAgent()
         self._agent.confirm_fn = confirmer.ask
         log("ALIXAgent ready (confirm_fn hooked).")
+        # Decision 3: normalize stored plans at boot, before
+        # the first message can arrive.
+        self._agent.recover_planning_at_boot()
 
     def submit(self, text: str) -> None:
         self._inbox.put(text)

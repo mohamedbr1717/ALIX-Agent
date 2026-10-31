@@ -67,8 +67,12 @@ class PlanStep:
     #: been verified (or predates Decision 2).
     verify: Optional[dict] = None
     verify_outcome: Optional[dict] = None
-    #: Reserved for Decision 3 (recovery/saga) — opaque in Decision 1.
-    compensate: Optional[dict] = None
+    # Decision 3 (owner's ruling, 2026-11-01): the reserved
+    # compensate field was RETIRED — a clean, honest deletion.
+    # It was copied verbatim since Decision 1 and never once
+    # read; no saga semantics exist. Old stored records that
+    # still carry the key load fine (the record DTO ignores it)
+    # and drop it on re-save.
     created_at: str = ""
     updated_at: str = ""
 
