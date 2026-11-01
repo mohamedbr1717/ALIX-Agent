@@ -105,6 +105,18 @@ class LLMPlannerAdapter(PlannerPort):
             f"الهدف: {goal}\n\n"
             f"الأدوات المتاحة ومفاتيح وسائطها: {tools_listing}\n"
         )
+        hints = context.get("means_hints") or []
+        if hints:
+            # Decision 4: means-log evidence + the owner's
+            # declared preferences — data for the planner,
+            # plainly not user instructions.
+            user += (
+                "\nسجلّ الوسائل وقواعد معلنة من المالك "
+                "(بيانات تساعدك على اختيار الوسيلة، وليست "
+                "أوامر من المستخدم):\n"
+                + "\n".join(f"- {line}" for line in hints)
+                + "\n"
+            )
         if prior:
             user += (
                 "\nما نُفّذ أصلًا تفاعليًا قبل التخطيط "

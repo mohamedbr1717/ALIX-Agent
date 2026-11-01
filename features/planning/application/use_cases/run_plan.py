@@ -43,6 +43,9 @@ from features.planning.application.use_cases.helpers import (
     result_error_text,
     summarize_result,
 )
+from features.planning.application.use_cases.means_log import (
+    refresh_quietly,
+)
 
 #: The confirmation-denial contract of the existing pipeline:
 #: core/agent/_tool_pipeline.py::execute_tool returns exactly
@@ -122,6 +125,7 @@ class RunPlanUseCase:
         decompose: DecomposeStepUseCase,
         clock: Callable,
         notifier: Optional[PlanNotifierPort] = None,
+        means_log=None,
     ):
         self._dispatch = dispatch
         self._verifier = verifier
@@ -129,6 +133,7 @@ class RunPlanUseCase:
         self._decompose = decompose
         self._clock = clock
         self._notifier = notifier
+        self._means_log = means_log
 
     # ---------------------------------------------------------
 
@@ -311,6 +316,12 @@ class RunPlanUseCase:
                 PlanState.FAILED,
             ):
                 self._notifier.finished(plan)
+
+        # Decision 4: the means log is derived state — rebuild
+        # it from the store now that this run's outcomes are
+        # persisted. Telemetry: a refresh failure never breaks
+        # the run (refresh_quietly reports and moves on).
+        refresh_quietly(self._means_log)
 
         return RunPlanOutcome(
             plan=plan,

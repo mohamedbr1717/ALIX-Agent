@@ -33,6 +33,9 @@ from features.planning.application.use_cases.helpers import (
 from features.planning.application.use_cases.list_plans import (
     ListPlansUseCase,
 )
+from features.planning.application.use_cases.means_log import (
+    MeansLogUseCase,
+)
 from features.planning.application.use_cases.recover_plans import (
     RecoverPlansUseCase,
 )
@@ -104,6 +107,22 @@ def _admin_parts(store, clock, notifier, verifier=None):
     }
 
 
+def _runtime_tags() -> frozenset:
+    """Decision 4: which runtime this process is.
+
+    The one mechanical fact the declared rules need: Termux
+    (the phone — Termux:API exists) vs a plain server (the
+    VPS — it does not). The Termux prefix is the environment's
+    own marker, not a guess.
+    """
+    import os
+
+    prefix = os.environ.get("PREFIX", "")
+    if prefix.startswith("/data/data/com.termux"):
+        return frozenset({"termux"})
+    return frozenset({"server"})
+
+
 def build_plan_admin_controller(
     base_dir=None,
     clock: Optional[Callable] = None,
@@ -154,6 +173,11 @@ def build_planning_controller(
     run_plan = None
     if llm is not None:
         planner = LLMPlannerAdapter(llm)
+        means_log = MeansLogUseCase(
+            store=store,
+            path=store.path.with_name("means_log.json"),
+            clock=clock,
+        )
         create_plan = CreatePlanUseCase(
             planner=planner,
             store=store,
@@ -164,6 +188,8 @@ def build_planning_controller(
             clock=clock,
             notifier=notifier,
             read_tools=frozenset(read_tools),
+            runtime_tags=_runtime_tags(),
+            means_hints_provider=means_log.hints,
         )
         if execute_tool is not None:
             dispatch = CallableToolDispatch(execute_tool)
@@ -201,6 +227,7 @@ def build_planning_controller(
                 decompose=decompose,
                 clock=clock,
                 notifier=notifier,
+                means_log=means_log,
             )
 
     return PlanningController(

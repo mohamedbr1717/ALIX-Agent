@@ -17,6 +17,10 @@ from domain.planning.entities import (
     PlanStep,
     PriorAction,
 )
+from domain.planning.means import (
+    BANNED_TOOL_CONTEXTS,
+    PREFERENCE_NOTES,
+)
 from domain.planning.states import BlockedReason, StepState
 from domain.planning.validation import (
     PlanRejected,
@@ -78,6 +82,8 @@ class CreatePlanUseCase:
         clock: Callable,
         notifier: Optional[PlanNotifierPort] = None,
         read_tools: frozenset = frozenset(),
+        runtime_tags: frozenset = frozenset(),
+        means_hints_provider=None,
     ):
         self._planner = planner
         self._store = store
@@ -88,6 +94,8 @@ class CreatePlanUseCase:
         self._clock = clock
         self._notifier = notifier
         self._read_tools = read_tools
+        self._runtime_tags = runtime_tags
+        self._means_hints_provider = means_hints_provider
 
     def execute(
         self, request: CreatePlanRequest
@@ -109,6 +117,21 @@ class CreatePlanUseCase:
                 for name, keys in self._tool_schemas.items()
             },
         }
+
+        # Decision 4 (advisory): the means log's evidence and
+        # the owner's declared preference notes ride into the
+        # planner's context as DATA. Advice only — acceptance
+        # below is unchanged, and a broken log never blocks
+        # planning (the provider seam degrades to no hints).
+        hints: list = []
+        if self._means_hints_provider is not None:
+            try:
+                hints = list(self._means_hints_provider())
+            except Exception:
+                hints = []
+        hints.extend(PREFERENCE_NOTES)
+        if hints:
+            context["means_hints"] = hints
 
         try:
             draft = self._planner.plan(
@@ -140,6 +163,27 @@ class CreatePlanUseCase:
                 reason="below_min_steps",
                 detail=f"{len(validated)} steps",
             )
+
+        # Decision 4 (declared rules): a tool banned in this
+        # runtime context (a mechanical capability fact, e.g.
+        # notify on a server without Termux:API) rejects the
+        # draft whole — the caller falls back safely, exactly
+        # like every other acceptance rejection.
+        for vstep in validated:
+            banned_in = [
+                tag
+                for (tool, tag) in BANNED_TOOL_CONTEXTS
+                if tool == vstep.tool and tag in self._runtime_tags
+            ]
+            if banned_in:
+                return CreatePlanOutcome(
+                    created=False,
+                    reason="means_rule_banned",
+                    detail=(
+                        f"{vstep.tool} banned in context "
+                        f"{banned_in[0]} (declared Decision-4 rule)"
+                    ),
+                )
 
         if all(
             vstep.tool in RESEARCH_ONLY_TOOLS for vstep in validated

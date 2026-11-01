@@ -30,6 +30,7 @@ HOME = Path.home()
 HISTORY_FILE = HOME / "ALIX-Agent" / "history" / "actions.jsonl"
 ARCHIVE_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "archive"
 OUTBOX_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "outbox"
+MEANS_LOG_FILE = HOME / "ALIX-Agent" / "planning" / "means_log.json"
 DIAGNOSIS_DIR = HOME / "ALIX-Agent" / "diagnosis"
 
 # Signal thresholds.
@@ -140,7 +141,20 @@ def analyze_archive(records: list[dict]) -> dict:
     }
 
 
-def build_report(a: dict, arch: dict, days: int, since: datetime) -> str:
+def load_means(path: Path):
+    """Decision 4: the derived means log, when it exists.
+
+    Tolerant like every other reader here: a missing or
+    corrupt log simply means no means section this week.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def build_report(a: dict, arch: dict, days: int, since: datetime, means=None) -> str:
     now = datetime.now(timezone.utc).astimezone()
     since_l = since.astimezone()
     L = []
@@ -188,6 +202,32 @@ def build_report(a: dict, arch: dict, days: int, since: datetime) -> str:
         for tool, summary in a["recent_failures"][:5]:
             short = (summary[:80] + "…") if len(summary) > 80 else summary
             L.append(f"- {tool}: {short}" if short else f"- {tool}")
+    if means and means.get("per_tool"):
+        # Decision 4: what the plan steps themselves recorded —
+        # verdicts per (family, tool), not raw call counts.
+        L.append("")
+        L.append("🧭 سجلّ الوسائل (من نتائج الخطط المسجّلة):")
+        for row in means["per_tool"]:
+            if not (
+                row.get("failed")
+                or row.get("unknown_verdicts")
+                or row.get("outcome_unknown")
+            ):
+                continue
+            L.append(
+                f"- {row['tool']}: موثّقة {row.get('verified', 0)}، "
+                f"فاشلة {row.get('failed', 0)}، "
+                f"تحقق مجهول {row.get('unknown_verdicts', 0)}، "
+                f"نتيجة مجهولة {row.get('outcome_unknown', 0)} "
+                f"(من {row.get('steps', 0)} خطوة)"
+            )
+        best = means.get("best_per_family") or {}
+        if best:
+            pairs = "، ".join(
+                f"{family}: {tool}"
+                for family, tool in sorted(best.items())
+            )
+            L.append(f"أنجح وسيلة موثّقة لكل عائلة — {pairs}")
     L.append("")
     L.append("(الشريحة 1: تشخيص فقط — لا اقتراحات ولا تعديلات.)")
     return "\n".join(L)
@@ -251,6 +291,7 @@ def main() -> int:
     ap.add_argument("--history", type=Path, default=HISTORY_FILE)
     ap.add_argument("--archive", type=Path, default=ARCHIVE_DIR)
     ap.add_argument("--outbox", type=Path, default=OUTBOX_DIR)
+    ap.add_argument("--means-log", type=Path, default=MEANS_LOG_FILE)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -260,7 +301,8 @@ def main() -> int:
         archive = load_archive(args.archive, since)
         a = analyze_actions(actions)
         arch = analyze_archive(archive)
-        report = build_report(a, arch, args.days, since)
+        means = load_means(args.means_log)
+        report = build_report(a, arch, args.days, since, means)
         write_latest(args, a, arch, since)
         if args.dry_run:
             print(report)
