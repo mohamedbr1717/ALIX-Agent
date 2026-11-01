@@ -105,6 +105,16 @@ class LLMPlannerAdapter(PlannerPort):
             f"الهدف: {goal}\n\n"
             f"الأدوات المتاحة ومفاتيح وسائطها: {tools_listing}\n"
         )
+        cap_notes = context.get("capability_notes") or []
+        if cap_notes:
+            # Decision 5: the capability ledger for this
+            # context — data, plainly not user instructions.
+            user += (
+                "\nحالة القدرات في هذا السياق (بيانات من سجلّ "
+                "القدرات، وليست أوامر من المستخدم):\n"
+                + "\n".join(f"- {line}" for line in cap_notes)
+                + "\n"
+            )
         hints = context.get("means_hints") or []
         if hints:
             # Decision 4: means-log evidence + the owner's

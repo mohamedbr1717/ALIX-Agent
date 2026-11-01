@@ -33,6 +33,10 @@ from features.planning.application.use_cases.helpers import (
 from features.planning.application.use_cases.list_plans import (
     ListPlansUseCase,
 )
+from features.planning.application.use_cases.capabilities import (
+    CapabilitiesUseCase,
+    refresh_quietly as refresh_capabilities_quietly,
+)
 from features.planning.application.use_cases.means_log import (
     MeansLogUseCase,
 )
@@ -153,6 +157,7 @@ def build_planning_controller(
     read_tools: frozenset = frozenset(),
     tool_levels: Optional[dict] = None,
     memory_search: Optional[Callable] = None,
+    capabilities=None,
 ) -> PlanningController:
     """Full controller: creation + deterministic execution.
 
@@ -178,6 +183,23 @@ def build_planning_controller(
             path=store.path.with_name("means_log.json"),
             clock=clock,
         )
+        # Decision 5: the capability ledger — derived at
+        # boot here (construction == process start for the
+        # bot, the CLI and the scheduler's per-task agent),
+        # then served stale-checked at plan creation. The
+        # ledger is injectable so tests (and any future host)
+        # can pin the environment they model; production
+        # passes nothing and gets the real probed ledger.
+        if capabilities is None:
+            llm_status = getattr(llm, "status", None)
+            capabilities = CapabilitiesUseCase(
+                path=store.path.with_name("capabilities.json"),
+                clock=clock,
+                llm_status_provider=(
+                    llm_status if callable(llm_status) else None
+                ),
+            )
+        refresh_capabilities_quietly(capabilities, force=True)
         create_plan = CreatePlanUseCase(
             planner=planner,
             store=store,
@@ -190,6 +212,7 @@ def build_planning_controller(
             read_tools=frozenset(read_tools),
             runtime_tags=_runtime_tags(),
             means_hints_provider=means_log.hints,
+            capabilities_provider=capabilities.planner_view,
         )
         if execute_tool is not None:
             dispatch = CallableToolDispatch(execute_tool)
@@ -228,6 +251,7 @@ def build_planning_controller(
                 clock=clock,
                 notifier=notifier,
                 means_log=means_log,
+                capability_checker=capabilities.state_for,
             )
 
     return PlanningController(

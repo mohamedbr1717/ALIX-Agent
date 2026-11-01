@@ -84,6 +84,7 @@ class CreatePlanUseCase:
         read_tools: frozenset = frozenset(),
         runtime_tags: frozenset = frozenset(),
         means_hints_provider=None,
+        capabilities_provider=None,
     ):
         self._planner = planner
         self._store = store
@@ -96,6 +97,7 @@ class CreatePlanUseCase:
         self._read_tools = read_tools
         self._runtime_tags = runtime_tags
         self._means_hints_provider = means_hints_provider
+        self._capabilities_provider = capabilities_provider
 
     def execute(
         self, request: CreatePlanRequest
@@ -109,14 +111,32 @@ class CreatePlanUseCase:
             for (tool, args, result_text) in request.prior_actions
         ]
 
+        # Decision 5: the capability ledger's view of THIS
+        # context — tools proven unavailable here leave the
+        # planner's listing, and the ledger's notes ride as
+        # data. A broken ledger never blocks planning (the
+        # seam degrades to no exclusions, no notes).
+        cap_excluded: frozenset = frozenset()
+        cap_notes: list = []
+        if self._capabilities_provider is not None:
+            try:
+                cap_excluded, cap_notes = (
+                    self._capabilities_provider()
+                )
+            except Exception:
+                cap_excluded, cap_notes = frozenset(), []
+
         context = {
             "origin": request.origin,
-            "tools": sorted(self._allowlist),
+            "tools": sorted(self._allowlist - cap_excluded),
             "tool_args": {
                 name: sorted(keys)
                 for name, keys in self._tool_schemas.items()
+                if name not in cap_excluded
             },
         }
+        if cap_notes:
+            context["capability_notes"] = cap_notes
 
         # Decision 4 (advisory): the means log's evidence and
         # the owner's declared preference notes ride into the
@@ -182,6 +202,21 @@ class CreatePlanUseCase:
                     detail=(
                         f"{vstep.tool} banned in context "
                         f"{banned_in[0]} (declared Decision-4 rule)"
+                    ),
+                )
+
+        # Decision 5 (pre-flight at acceptance): a draft that
+        # still binds a tool the ledger proves unavailable in
+        # this context is rejected whole — listing exclusion
+        # is a hint to a model, this is the guarantee.
+        for vstep in validated:
+            if vstep.tool in cap_excluded:
+                return CreatePlanOutcome(
+                    created=False,
+                    reason="capability_unavailable",
+                    detail=(
+                        f"{vstep.tool} unavailable in this "
+                        "context (Decision-5 capability ledger)"
                     ),
                 )
 

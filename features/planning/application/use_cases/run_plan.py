@@ -126,6 +126,7 @@ class RunPlanUseCase:
         clock: Callable,
         notifier: Optional[PlanNotifierPort] = None,
         means_log=None,
+        capability_checker=None,
     ):
         self._dispatch = dispatch
         self._verifier = verifier
@@ -134,6 +135,7 @@ class RunPlanUseCase:
         self._clock = clock
         self._notifier = notifier
         self._means_log = means_log
+        self._capability_checker = capability_checker
 
     # ---------------------------------------------------------
 
@@ -153,6 +155,45 @@ class RunPlanUseCase:
             step = next_runnable_step(plan)
             if step is None:
                 break
+
+            # Decision 5 pre-flight: a step whose tool the
+            # capability ledger proves unavailable in this
+            # context never dispatches — no approval card for
+            # a dead means, no burned attempt, and (per the
+            # means log's honesty rules) no failure recorded
+            # for an attempt that was never made. The step
+            # blocks as a capability fact and escalates.
+            if self._capability_checker is not None:
+                cap = None
+                try:
+                    cap = self._capability_checker(step.tool)
+                except Exception:
+                    cap = None
+                if cap is not None and cap[0] == "unavailable":
+                    plan.transition_step(
+                        step.step_id,
+                        StepState.BLOCKED,
+                        blocked_reason=(
+                            BlockedReason.CAPABILITY_UNAVAILABLE
+                        ),
+                        now=iso(now),
+                    )
+                    step.error = (
+                        "القدرة غير متاحة في هذا السياق: "
+                        f"{cap[1]}"
+                    )
+                    plan.escalated = True
+                    self._save(plan)
+                    if self._notifier is not None:
+                        self._notifier.escalated(
+                            plan,
+                            step,
+                            "القدرة غير متاحة في هذا السياق "
+                            "(قرار 5).",
+                        )
+                    escalated_notified = True
+                    stopped_reason = "capability_unavailable"
+                    break
 
             plan.transition_step(
                 step.step_id, StepState.RUNNING, now=iso(now)

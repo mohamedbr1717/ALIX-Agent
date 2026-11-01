@@ -11,6 +11,7 @@ python-dotenv dependency is absent), so the contract is pinned
 textually instead of by import.
 """
 import json
+from datetime import datetime, timezone
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,9 @@ from domain.planning.states import BlockedReason, StepState
 
 from features.planning.application.use_cases.run_plan import (
     APPROVAL_DENIED_ERROR_PREFIX,
+)
+from features.planning.application.use_cases.capabilities import (
+    CapabilitiesUseCase,
 )
 from features.planning.composition import (
     build_planning_controller,
@@ -111,10 +115,24 @@ class PolicyPathCase(unittest.TestCase):
     def build(self, plan_draft, confirmer):
         pipeline = FakePipeline(confirmer)
         llm = FakeLLM(plan_draft)
+        # Decision 5 isolation: these tests pin the approval
+        # pipeline, not the host environment — inject a ledger
+        # whose probers model a fully provisioned host (every
+        # binary present, every credential group set). The
+        # ledger's own behavior is pinned by
+        # test_planning_decision5 with realistic probers.
+        capabilities = CapabilitiesUseCase(
+            path=Path(self._tmp.name) / "capabilities.json",
+            clock=lambda: datetime.now(timezone.utc),
+            binary_prober=lambda name: "/usr/bin/" + name,
+            env_reader=lambda name: "set",
+            llm_status_provider=None,
+        )
         controller = build_planning_controller(
             llm=llm,
             execute_tool=pipeline.execute,
             base_dir=Path(self._tmp.name),
+            capabilities=capabilities,
             allowlist=frozenset(LEVELS),
             tool_schemas=SCHEMAS,
             destructive_tools=frozenset({"calendar_delete"}),

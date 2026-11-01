@@ -31,6 +31,7 @@ HISTORY_FILE = HOME / "ALIX-Agent" / "history" / "actions.jsonl"
 ARCHIVE_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "archive"
 OUTBOX_DIR = HOME / "ALIX-Agent" / "pending_approvals" / "outbox"
 MEANS_LOG_FILE = HOME / "ALIX-Agent" / "planning" / "means_log.json"
+CAPABILITIES_FILE = HOME / "ALIX-Agent" / "planning" / "capabilities.json"
 DIAGNOSIS_DIR = HOME / "ALIX-Agent" / "diagnosis"
 
 # Signal thresholds.
@@ -154,7 +155,17 @@ def load_means(path: Path):
     return data if isinstance(data, dict) else None
 
 
-def build_report(a: dict, arch: dict, days: int, since: datetime, means=None) -> str:
+def load_capabilities(path: Path):
+    """Decision 5: the derived capability ledger, when it
+    exists. Tolerant like load_means."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def build_report(a: dict, arch: dict, days: int, since: datetime, means=None, capabilities=None) -> str:
     now = datetime.now(timezone.utc).astimezone()
     since_l = since.astimezone()
     L = []
@@ -228,6 +239,19 @@ def build_report(a: dict, arch: dict, days: int, since: datetime, means=None) ->
                 for family, tool in sorted(best.items())
             )
             L.append(f"أنجح وسيلة موثّقة لكل عائلة — {pairs}")
+    if capabilities and capabilities.get("subjects"):
+        down = [
+            row for row in capabilities["subjects"]
+            if row.get("state") != "available"
+        ]
+        if down:
+            L.append("")
+            L.append("🧭 سجلّ القدرات (قرار 5 — غير المتاح والمجهول):")
+            for row in down:
+                L.append(
+                    f"- {row['subject']}: {row['state']} — "
+                    f"{row.get('evidence', '')}"
+                )
     L.append("")
     L.append("(الشريحة 1: تشخيص فقط — لا اقتراحات ولا تعديلات.)")
     return "\n".join(L)
@@ -292,6 +316,7 @@ def main() -> int:
     ap.add_argument("--archive", type=Path, default=ARCHIVE_DIR)
     ap.add_argument("--outbox", type=Path, default=OUTBOX_DIR)
     ap.add_argument("--means-log", type=Path, default=MEANS_LOG_FILE)
+    ap.add_argument("--capabilities", type=Path, default=CAPABILITIES_FILE)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -302,7 +327,8 @@ def main() -> int:
         a = analyze_actions(actions)
         arch = analyze_archive(archive)
         means = load_means(args.means_log)
-        report = build_report(a, arch, args.days, since, means)
+        capabilities = load_capabilities(args.capabilities)
+        report = build_report(a, arch, args.days, since, means, capabilities)
         write_latest(args, a, arch, since)
         if args.dry_run:
             print(report)

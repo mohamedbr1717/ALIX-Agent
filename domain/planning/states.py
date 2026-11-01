@@ -33,6 +33,11 @@ class BlockedReason(Enum):
     #: read-back needed to verify the effect could not be performed
     #: or produced no usable evidence — outcome stays unknown.
     VERIFICATION_UNKNOWN = "verification_unknown"
+    #: Decision 5: the step never dispatched — its tool is
+    #: unavailable in this context per the capability ledger
+    #: (probed or owner-declared). Not a means failure: the
+    #: attempt was never made.
+    CAPABILITY_UNAVAILABLE = "capability_unavailable"
 
 
 class PlanState(Enum):
