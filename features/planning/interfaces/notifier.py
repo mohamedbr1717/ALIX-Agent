@@ -59,6 +59,17 @@ class PlanNotifier(PlanNotifierPort):
             )
         )
 
+    def clarification(self, goal: str, question: str) -> None:
+        # Decision 6: the ask reaches the owner through the
+        # same buffered channel as every other plan event.
+        self._emit(
+            f"❓ توضيح مطلوب قبل التنفيذ: «{goal}»\n{question}"
+        )
+
+    def plan_notices(self, plan: Plan, notices) -> None:
+        if notices:
+            self._emit("\n".join(notices))
+
     def decomposed(
         self,
         plan: Plan,

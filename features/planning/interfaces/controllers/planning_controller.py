@@ -141,6 +141,25 @@ class PlanningController:
             )
         )
         if not outcome.created:
+            if outcome.reason == "clarification_needed":
+                # Decision 6: the ask IS the handling — falling
+                # back to direct execution would invent the
+                # very values the question exists to request.
+                texts = (
+                    self._notifier.drain()
+                    if self._notifier is not None
+                    else []
+                )
+                if not texts:
+                    texts = [f"❓ {outcome.detail}"]
+                return EscalationOutcome(
+                    handled=True,
+                    reply_text="\n\n".join(texts),
+                    plan_id="",
+                    state="clarification_needed",
+                    reason=outcome.reason,
+                    detail=outcome.detail,
+                )
             return EscalationOutcome(
                 handled=False,
                 reason=outcome.reason,

@@ -46,3 +46,15 @@ class PlanNotifierPort(ABC):
     @abstractmethod
     def recovered(self, plans: List[Plan]) -> None:
         """One combined startup digest of crash-normalized plans."""
+
+    # -- Decision 6 events (concrete defaults: notifiers that
+    # predate the decision simply drop them) --
+
+    def clarification(self, goal: str, question: str) -> None:
+        """No plan was created: the owner is asked a question
+        first (the planner's clarify reply, or the scheduled
+        ask rule)."""
+
+    def plan_notices(self, plan: Plan, notices: List[str]) -> None:
+        """Disclosure lines riding a created plan's notice
+        (risks stated, not asked)."""

@@ -248,6 +248,16 @@ class ReadBackVerifier(VerifierPort):
 
     # ---------------------------------------------------------
 
+    @classmethod
+    def default_spec_tools(cls) -> frozenset:
+        """Tools with a Decision-2 default read-back spec —
+        the index of _spec_for's branches below (kept in
+        step by test_planning_decision6). Decision 6 reads
+        this to know which write tools are verifiable."""
+        return frozenset(
+            {"calendar_add", "calendar_delete", "remember_fact"}
+        )
+
     def _is_exempt(self, tool: str) -> bool:
         if tool in _EXEMPT_BY_NAME:
             return True

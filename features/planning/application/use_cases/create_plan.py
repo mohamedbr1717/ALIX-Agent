@@ -17,6 +17,12 @@ from domain.planning.entities import (
     PlanStep,
     PriorAction,
 )
+from domain.planning.ask import (
+    MAX_QUESTION_CHARS,
+    disclosure_lines,
+    scheduled_ask_question,
+    unverifiable_write_steps,
+)
 from domain.planning.means import (
     BANNED_TOOL_CONTEXTS,
     PREFERENCE_NOTES,
@@ -85,6 +91,8 @@ class CreatePlanUseCase:
         runtime_tags: frozenset = frozenset(),
         means_hints_provider=None,
         capabilities_provider=None,
+        tool_levels: dict = None,
+        verifiable_tools: frozenset = frozenset(),
     ):
         self._planner = planner
         self._store = store
@@ -98,6 +106,29 @@ class CreatePlanUseCase:
         self._runtime_tags = runtime_tags
         self._means_hints_provider = means_hints_provider
         self._capabilities_provider = capabilities_provider
+        self._tool_levels = dict(tool_levels or {})
+        self._verifiable_tools = verifiable_tools
+
+    # -- Decision 6 notification helpers: a failed or absent
+    # notification channel never fails creation (port rule).
+
+    def _notify_clarification(self, goal: str, question: str) -> None:
+        if self._notifier is None:
+            return
+        fn = getattr(self._notifier, "clarification", None)
+        if callable(fn):
+            try:
+                fn(goal, question)
+            except Exception:
+                pass
+
+    def _notify_notices(self, plan, notices) -> None:
+        fn = getattr(self._notifier, "plan_notices", None)
+        if callable(fn):
+            try:
+                fn(plan, notices)
+            except Exception:
+                pass
 
     def execute(
         self, request: CreatePlanRequest
@@ -164,6 +195,29 @@ class CreatePlanUseCase:
                 detail=type(exc).__name__,
             )
 
+        # Decision 6 (clarify channel): the planner may answer
+        # with a question instead of a draft when a required
+        # detail cannot be derived — the structured alternative
+        # to inventing values. No plan is created; the question
+        # is the outcome, delivered via the notifier and the
+        # controller's reply. A malformed clarify falls through
+        # to validation and is rejected like any bad draft.
+        if (
+            isinstance(draft, dict)
+            and "steps" not in draft
+            and isinstance(draft.get("clarify"), str)
+            and draft["clarify"].strip()
+        ):
+            question = draft["clarify"].strip()[
+                :MAX_QUESTION_CHARS
+            ]
+            self._notify_clarification(request.goal, question)
+            return CreatePlanOutcome(
+                created=False,
+                reason="clarification_needed",
+                detail=question,
+            )
+
         validated = validate_plan_draft(
             draft,
             self._allowlist,
@@ -219,6 +273,27 @@ class CreatePlanUseCase:
                         "context (Decision-5 capability ledger)"
                     ),
                 )
+
+        # Decision 6 (ask rule): in a scheduled context, a
+        # write step whose effect cannot be verified asks
+        # BEFORE anything runs — no plan is created and the
+        # question goes out through the notifier. Interactive
+        # requests execute without asking (owner's ruling);
+        # their hits become disclosure lines on the created
+        # plan's notice instead (computed at creation below).
+        ask_hits = unverifiable_write_steps(
+            validated,
+            tool_levels=self._tool_levels,
+            verifiable_tools=self._verifiable_tools,
+        )
+        if ask_hits and request.origin == "scheduled":
+            question = scheduled_ask_question(ask_hits)
+            self._notify_clarification(request.goal, question)
+            return CreatePlanOutcome(
+                created=False,
+                reason="clarification_needed",
+                detail=question,
+            )
 
         if all(
             vstep.tool in RESEARCH_ONLY_TOOLS for vstep in validated
@@ -289,6 +364,11 @@ class CreatePlanUseCase:
         )
 
         self._store.save(plan_to_record(plan, now))
+
+        if ask_hits and self._notifier is not None:
+            # Interactive disclosure (Decision 6): stated on
+            # the notice, never asked, never a gate.
+            self._notify_notices(plan, disclosure_lines(ask_hits))
 
         if self._notifier is not None:
             approval_steps = sum(

@@ -213,6 +213,8 @@ def build_planning_controller(
             runtime_tags=_runtime_tags(),
             means_hints_provider=means_log.hints,
             capabilities_provider=capabilities.planner_view,
+            tool_levels=dict(tool_levels or {}),
+            verifiable_tools=ReadBackVerifier.default_spec_tools(),
         )
         if execute_tool is not None:
             dispatch = CallableToolDispatch(execute_tool)
