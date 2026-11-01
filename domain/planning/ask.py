@@ -25,7 +25,25 @@ out: their result is their evidence.
 """
 from __future__ import annotations
 
+import hashlib
 from typing import List, Mapping
+
+#: Single-ask principle (owner's ruling, 2026-11-01): one
+#: request earns ONE question. A scheduled clarification for
+#: the same goal is not re-delivered inside this cooldown —
+#: a recurring task may ask again only on a genuinely new
+#: occasion (after the window), never run after run.
+ASK_REPEAT_COOLDOWN_DAYS = 7
+
+
+def clarification_key(goal: str) -> str:
+    """Stable identity of a clarification ask: the normalized
+    goal text (the planner's question wording legitimately
+    varies between runs; the goal is the durable intent)."""
+    normalized = " ".join(str(goal or "").split()).casefold()
+    return hashlib.sha256(
+        normalized.encode("utf-8")
+    ).hexdigest()[:24]
 
 #: Levels whose effects change the world and so can outlive
 #: a wrong guess — the levels the ask/disclose rule reads.

@@ -52,6 +52,9 @@ from features.planning.application.use_cases.run_plan import (
 from features.planning.infrastructure.adapters.contract_ok_verifier import (
     ContractOkVerifier,
 )
+from features.planning.infrastructure.adapters.json_ask_ledger import (
+    JsonAskLedger,
+)
 from features.planning.infrastructure.adapters.json_plan_store import (
     JsonPlanStore,
 )
@@ -215,6 +218,9 @@ def build_planning_controller(
             capabilities_provider=capabilities.planner_view,
             tool_levels=dict(tool_levels or {}),
             verifiable_tools=ReadBackVerifier.default_spec_tools(),
+            ask_ledger=JsonAskLedger(
+                store.path.with_name("asked_clarifications.json")
+            ),
         )
         if execute_tool is not None:
             dispatch = CallableToolDispatch(execute_tool)

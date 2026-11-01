@@ -151,7 +151,17 @@ class PlanningController:
                     else []
                 )
                 if not texts:
-                    texts = [f"❓ {outcome.detail}"]
+                    if outcome.ask_repeated:
+                        # Single-ask: already delivered inside
+                        # the cooldown — this text reaches the
+                        # run log only, never the owner again.
+                        texts = [
+                            "🔁 سؤال التوضيح طُرح من قبل ولم "
+                            "يُعاد إرساله (اسأل مرة واحدة): "
+                            f"{outcome.detail}"
+                        ]
+                    else:
+                        texts = [f"❓ {outcome.detail}"]
                 return EscalationOutcome(
                     handled=True,
                     reply_text="\n\n".join(texts),

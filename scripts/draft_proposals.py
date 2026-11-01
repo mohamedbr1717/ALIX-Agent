@@ -9,7 +9,9 @@ machinery (core/scheduled_approval.request_approval):
   - tool_name="proposal", task_name="🔧 اقتراح إصلاح ذاتي", level="proposal"
   - the Telegram bot shows the card; 180s TTL; نعم/لا.
   - verdicts are reconciled here: approved -> ready for slice 3 (apply);
-    denied -> never re-proposed; expired -> re-proposable next cycle.
+    denied -> never re-proposed; expired -> SUPPRESSED (single-ask
+    principle, 2026-11-01): re-proposed only on NEW evidence — the
+    signal's failure/count value grew past the recorded one.
 
 Nothing is executed here and nothing self-modifies: a "نعم" only authorizes
 drafting+applying the fix with tests (slice 3 / supervised). Any failure
@@ -55,6 +57,19 @@ OPEN_STATUSES = {"proposed", "approved"}
 def fingerprint(signal: dict) -> str:
     key = f"{signal.get('type', '?')}:{signal.get('tool', '?')}"
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+
+def signal_evidence(signal: dict):
+    """The signal's measurable size: failures for tool_failures,
+    count for the denial/other signal types, else None. An
+    expired proposal may be re-asked only when this value has
+    GROWN past the one recorded at proposal time (single-ask:
+    new evidence, not a repeated demand)."""
+    for field in ("failures", "count"):
+        value = signal.get(field)
+        if isinstance(value, (int, float)):
+            return value
+    return None
 
 
 def load_index() -> dict:
@@ -236,6 +251,22 @@ def _run(args) -> int:
         status = index.get(fp, {}).get("status")
         if status in OPEN_STATUSES or status == "denied":
             continue  # already open, approved, or explicitly denied: never re-ask
+        if status == "expired":
+            # Single-ask: an unanswered proposal is not a
+            # recurring demand. Re-propose ONLY on new
+            # evidence — the signal grew past the value
+            # recorded when it was first asked.
+            recorded = index.get(fp, {}).get("signal_evidence")
+            current = signal_evidence(signal)
+            if (
+                recorded is None
+                or current is None
+                or current <= recorded
+            ):
+                print(
+                    f"suppressed (asked once, no new evidence): {fp}"
+                )
+                continue
         pid, title, summary, body = build_proposal(signal, days)
         if args.dry_run:
             print(f"--- PROPOSAL {pid} [{fp}] ---")
@@ -266,6 +297,7 @@ def _run(args) -> int:
             "status": "proposed",
             "request_id": req["id"],
             "created": datetime.now(timezone.utc).isoformat(),
+            "signal_evidence": signal_evidence(signal),
         }
         queued.append((req["id"], pid, fp))
     if args.dry_run:
@@ -307,11 +339,10 @@ def _run(args) -> int:
         entry = index.get(fp, {})
         entry["status"] = status
         entry["decided_at"] = datetime.now(timezone.utc).isoformat()
-        if status == "expired":
-            # Expired (not denied): allow re-proposal next cycle.
-            index.pop(fp, None)
-        else:
-            index[fp] = entry
+        # Expired entries are KEPT (single-ask): the recorded
+        # signal_evidence is what suppresses a re-ask until
+        # the signal grows past it.
+        index[fp] = entry
         title = entry.get("title", pid)
         lines.append(f"{mark} {title}: {status}")
     save_index(index)
@@ -320,7 +351,7 @@ def _run(args) -> int:
         "",
         "المقبول → يُنفَّذ في الشريحة 3 (صياغة + تطبيق + اختبار) ثم تقرير.",
         "المرفوض → أُغلق نهائيًا ولن يُعاد طرحه.",
-        "المنتهي → سيُعاد طرحه الأسبوع المقبل إن استمرت الإشارة.",
+        "المنتهي → لن يُعاد طرحه إلا بدليل جديد (ازدياد الإخفاقات عن القيمة المسجّلة) — اسأل مرة واحدة.",
     ]
     queue_report("\n".join(lines), OUTBOX_DIR)
     print("\n".join(lines))

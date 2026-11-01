@@ -18,7 +18,9 @@ from domain.planning.entities import (
     PriorAction,
 )
 from domain.planning.ask import (
+    ASK_REPEAT_COOLDOWN_DAYS,
     MAX_QUESTION_CHARS,
+    clarification_key,
     disclosure_lines,
     scheduled_ask_question,
     unverifiable_write_steps,
@@ -37,6 +39,9 @@ from features.planning.application.dto.planning import (
     CreatePlanRequest,
 )
 from features.planning.application.mapping import plan_to_record
+from features.planning.application.ports.ask_ledger import (
+    AskLedgerPort,
+)
 from features.planning.application.ports.plan_notifier import (
     PlanNotifierPort,
 )
@@ -71,6 +76,10 @@ class CreatePlanOutcome:
     plan: Optional[Plan] = None
     reason: str = ""  # rejection reason when created is False
     detail: str = ""
+    # Single-ask: True when this clarification was already
+    # delivered for the same scheduled goal inside the
+    # cooldown and the notification was suppressed.
+    ask_repeated: bool = False
 
 
 class CreatePlanUseCase:
@@ -93,6 +102,7 @@ class CreatePlanUseCase:
         capabilities_provider=None,
         tool_levels: dict = None,
         verifiable_tools: frozenset = frozenset(),
+        ask_ledger: Optional[AskLedgerPort] = None,
     ):
         self._planner = planner
         self._store = store
@@ -108,6 +118,7 @@ class CreatePlanUseCase:
         self._capabilities_provider = capabilities_provider
         self._tool_levels = dict(tool_levels or {})
         self._verifiable_tools = verifiable_tools
+        self._ask_ledger = ask_ledger
 
     # -- Decision 6 notification helpers: a failed or absent
     # notification channel never fails creation (port rule).
@@ -121,6 +132,39 @@ class CreatePlanUseCase:
                 fn(goal, question)
             except Exception:
                 pass
+
+    def _ask_gate(self, request) -> bool:
+        """Single-ask gate (owner's principle, 2026-11-01).
+
+        Returns True when this clarification may be DELIVERED.
+        Interactive asks always deliver (the owner is present;
+        the conversation is the channel). Scheduled asks are
+        recorded in the ask ledger and delivered at most once
+        per ASK_REPEAT_COOLDOWN_DAYS per goal: a recurring
+        task whose question went unanswered stays silent on
+        later runs instead of demanding an answer every time.
+        No ledger wired → legacy behavior (always deliver)."""
+        if request.origin != "scheduled" or self._ask_ledger is None:
+            return True
+        key = clarification_key(request.goal)
+        now = self._clock()
+        try:
+            last = self._ask_ledger.last_asked(key)
+        except Exception:
+            last = None
+        if last is not None:
+            try:
+                if now - last < timedelta(
+                    days=ASK_REPEAT_COOLDOWN_DAYS
+                ):
+                    return False
+            except TypeError:
+                pass  # incomparable timestamps: deliver (ask once more)
+        try:
+            self._ask_ledger.record(key, now)
+        except Exception:
+            pass
+        return True
 
     def _notify_notices(self, plan, notices) -> None:
         fn = getattr(self._notifier, "plan_notices", None)
@@ -211,11 +255,14 @@ class CreatePlanUseCase:
             question = draft["clarify"].strip()[
                 :MAX_QUESTION_CHARS
             ]
-            self._notify_clarification(request.goal, question)
+            deliver = self._ask_gate(request)
+            if deliver:
+                self._notify_clarification(request.goal, question)
             return CreatePlanOutcome(
                 created=False,
                 reason="clarification_needed",
                 detail=question,
+                ask_repeated=not deliver,
             )
 
         validated = validate_plan_draft(
@@ -288,11 +335,14 @@ class CreatePlanUseCase:
         )
         if ask_hits and request.origin == "scheduled":
             question = scheduled_ask_question(ask_hits)
-            self._notify_clarification(request.goal, question)
+            deliver = self._ask_gate(request)
+            if deliver:
+                self._notify_clarification(request.goal, question)
             return CreatePlanOutcome(
                 created=False,
                 reason="clarification_needed",
                 detail=question,
+                ask_repeated=not deliver,
             )
 
         if all(
