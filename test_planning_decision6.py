@@ -154,7 +154,7 @@ class TestRule(unittest.TestCase):
 
     def test_hits_and_exemptions(self):
         steps = [
-            self._step("write_file"),          # hit
+            self._step("write_file"),          # verifiable now
             self._step("calendar_add"),        # verifiable
             self._step("read_file"),           # read level
             self._step("delete_file"),         # destructive
@@ -168,9 +168,10 @@ class TestRule(unittest.TestCase):
             tool_levels=dict(LEVELS),
             verifiable_tools=VERIFIABLE,
         )
-        self.assertEqual(
-            [s.tool for s in hits], ["write_file", "schedule_task"]
-        )
+        # write_file left the hit set on 2026-11-01: it gained
+        # a default read-back spec (content match), so only
+        # the still-unverifiable write remains a hit.
+        self.assertEqual([s.tool for s in hits], ["schedule_task"])
 
     def test_default_spec_tools_match_verifier_behavior(self):
         # The index must not drift from _spec_for's truth.
@@ -187,7 +188,7 @@ class TestRule(unittest.TestCase):
             return verifier._spec_for(step, {})
 
         for tool in ("calendar_add", "calendar_delete",
-                     "remember_fact"):
+                     "remember_fact", "write_file"):
             self.assertIn(tool, VERIFIABLE)
         self.assertIsNotNone(
             spec("calendar_add",
@@ -195,7 +196,18 @@ class TestRule(unittest.TestCase):
         )
         self.assertIsNotNone(spec("calendar_delete", {}))
         self.assertIsNotNone(spec("remember_fact", {"fact": "x"}))
+        # write_file (2026-11-01): spec exists only with a
+        # path AND a content within the read-back cap.
+        self.assertIsNotNone(
+            spec("write_file", {"path": "x", "content": "y"})
+        )
         self.assertIsNone(spec("write_file", {"path": "x"}))
+        self.assertIsNone(
+            spec(
+                "write_file",
+                {"path": "x", "content": "y" * 4001},
+            )
+        )
 
 
 class TestClarifyChannel(CreateCase):
@@ -222,10 +234,14 @@ class TestClarifyChannel(CreateCase):
 
 
 class TestAskRule(CreateCase):
+    # schedule_task is the unverifiable write here: write_file
+    # gained a read-back spec on 2026-11-01 and no longer asks
+    # (its verifiable path is test_scheduled_verifiable_write_proceeds'
+    # sibling in test_planning_writeback.py).
     WRITE_DRAFT = {"steps": [
         draft_step("read_file", "قراءة", {"path": "x"}),
-        draft_step("write_file", "حفظ",
-                   {"path": "x", "content": "y"}),
+        draft_step("schedule_task", "جدولة",
+                   {"task": "حفظ التقرير غدًا"}),
     ]}
 
     def test_scheduled_unverifiable_write_asks(self):
@@ -234,7 +250,7 @@ class TestAskRule(CreateCase):
         )
         self.assertFalse(outcome.created)
         self.assertEqual(outcome.reason, "clarification_needed")
-        self.assertIn("write_file", outcome.detail)
+        self.assertIn("schedule_task", outcome.detail)
         self.assertEqual(len(self.store.list_all()), 0)
         self.assertEqual(len(self.notifier.clarifications), 1)
 
@@ -245,7 +261,7 @@ class TestAskRule(CreateCase):
         self.assertTrue(outcome.created, outcome)
         self.assertEqual(len(self.notifier.clarifications), 0)
         self.assertEqual(len(self.notifier.notices), 1)
-        self.assertIn("write_file", self.notifier.notices[0][0])
+        self.assertIn("schedule_task", self.notifier.notices[0][0])
         self.assertEqual(self.notifier.created_calls, 1)
 
     def test_scheduled_verifiable_write_proceeds(self):

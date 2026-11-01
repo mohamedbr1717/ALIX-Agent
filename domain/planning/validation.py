@@ -7,10 +7,35 @@ argument schemas are passed in as data so this module stays pure.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Mapping, Optional, Union
 
 from .entities import MAX_STEPS_PER_PLAN
+
+#: Planner-invented cross-step templates ({{step.result.0.…}}):
+#: the executor has NO template engine for step args — templates
+#: are resolved only inside a verify spec, by the verifier.
+#: A draft binding one into args would dispatch the literal
+#: string as the value (three live incidents; the latest,
+#: 2026-11-01, put an approval card in front of the owner
+#: asking to write "{{step.result.0.content}}" into gold.txt).
+#: Such a draft is rejected whole; the caller falls back to
+#: direct execution, which CAN carry real values between its
+#: own sequential tool calls.
+_PLACEHOLDER_RE = re.compile(r"\{\{[^{}]+\}\}")
+
+
+def _contains_placeholder(value) -> bool:
+    if isinstance(value, str):
+        return bool(_PLACEHOLDER_RE.search(value))
+    if isinstance(value, dict):
+        return any(
+            _contains_placeholder(item) for item in value.values()
+        )
+    if isinstance(value, (list, tuple)):
+        return any(_contains_placeholder(item) for item in value)
+    return False
 
 #: The exact key set of one step draft — anything more or less is
 #: a rejection (a draft may not smuggle state, ids or budgets).
@@ -162,6 +187,14 @@ def validate_step_list(
             return PlanRejected(
                 "args_outside_schema",
                 f"index {index}: {tool} {sorted(extra)}",
+            )
+
+        if _contains_placeholder(args):
+            return PlanRejected(
+                "placeholder_args",
+                f"index {index}: {tool} binds a {{{{...}}}} "
+                "template into args — step args must be literal "
+                "values; templates exist only inside verify specs",
             )
 
         verify = None

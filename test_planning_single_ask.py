@@ -56,12 +56,12 @@ from features.planning.infrastructure.adapters.readback_verifier import (
 NOW = datetime(2026, 11, 1, 20, 30, tzinfo=timezone.utc)
 GOAL = "احفظ تقرير الذهب في ملف"
 
-ALLOWLIST = frozenset({"web_search", "write_file"})
+ALLOWLIST = frozenset({"web_search", "schedule_task"})
 SCHEMAS = {
     "web_search": frozenset({"query"}),
-    "write_file": frozenset({"path", "content"}),
+    "schedule_task": frozenset({"task"}),
 }
-LEVELS = {"web_search": "read", "write_file": "write"}
+LEVELS = {"web_search": "read", "schedule_task": "write"}
 VERIFIABLE = ReadBackVerifier.default_spec_tools()
 
 
@@ -121,12 +121,15 @@ class StubLedger:
         self._last = when
 
 
+# schedule_task stands in for "an unverifiable write step":
+# write_file itself gained a read-back spec on 2026-11-01
+# and no longer triggers the scheduled ask.
 WRITE_DRAFT = {
     "steps": [
         {"intent": "بحث", "tool": "web_search",
          "args": {"query": "ذهب"}},
-        {"intent": "حفظ", "tool": "write_file",
-         "args": {"path": "gold.txt", "content": "x"}},
+        {"intent": "جدولة", "tool": "schedule_task",
+         "args": {"task": "حفظ التقرير غدًا"}},
     ]
 }
 

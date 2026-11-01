@@ -82,6 +82,21 @@ _MEMORY_SPEC = {
     "predicate": "exists_matching",
     "params": {"match": {"text": "{{step.args.fact}}"}},
 }
+#: write_file read-back (added 2026-11-01, owner's ruling
+#: after three live VERIFICATION_UNKNOWN blocks): re-read the
+#: file through read_file and compare its text (returned as
+#: ``stdout``) with the written content. read_file re-joins
+#: lines and caps its output at the executor's max_output
+#: (default 4000 chars), so a longer write cannot be proven
+#: by this channel and honestly stays UNKNOWN — the cap
+#: below mirrors that default.
+_WRITE_FILE_SPEC = {
+    "read_tool": "read_file",
+    "args": {"path": "{{step.args.path}}"},
+    "predicate": "field_equals",
+    "params": {"fields": {"stdout": "{{step.args.content}}"}},
+}
+WRITE_FILE_MAX_VERIFIABLE_CHARS = 4000
 
 
 class _Unresolvable(Exception):
@@ -255,7 +270,12 @@ class ReadBackVerifier(VerifierPort):
         step by test_planning_decision6). Decision 6 reads
         this to know which write tools are verifiable."""
         return frozenset(
-            {"calendar_add", "calendar_delete", "remember_fact"}
+            {
+                "calendar_add",
+                "calendar_delete",
+                "remember_fact",
+                "write_file",
+            }
         )
 
     def _is_exempt(self, tool: str) -> bool:
@@ -295,6 +315,15 @@ class ReadBackVerifier(VerifierPort):
             return _DELETE_SPEC
         if step.tool == "remember_fact":
             return _MEMORY_SPEC
+        if step.tool == "write_file":
+            content = step.args.get("content")
+            if (
+                isinstance(content, str)
+                and step.args.get("path")
+                and len(content) <= WRITE_FILE_MAX_VERIFIABLE_CHARS
+            ):
+                return _WRITE_FILE_SPEC
+            return None
         return None
 
     def _read_back(
