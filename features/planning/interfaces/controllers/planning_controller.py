@@ -126,7 +126,32 @@ class PlanningController:
         handled=False means "fall back to plain ReAct" — the
         spec's safe fallback (§4.1): planning is an improvement,
         never a new failure mode for tasks that worked before.
+
+        Single-channel rule (2026-11-01): an interactive turn
+        has exactly one delivery channel — this method's reply.
+        While it runs, the notifier buffers instead of sending
+        through its external (outbox) sender, so every plan
+        event reaches the owner exactly once, inside the reply.
+        Scheduled turns keep the outbox: their reply goes to
+        the scheduler's run log, never to the owner.
         """
+        buffering = getattr(self._notifier, "buffering", None)
+        if origin == "interactive" and callable(buffering):
+            with buffering():
+                return self._try_create_and_run(
+                    goal, origin, prior_actions, min_steps
+                )
+        return self._try_create_and_run(
+            goal, origin, prior_actions, min_steps
+        )
+
+    def _try_create_and_run(
+        self,
+        goal: str,
+        origin: str,
+        prior_actions=(),
+        min_steps: int = 2,
+    ) -> EscalationOutcome:
         if self._create_plan is None or self._run_plan is None:
             return EscalationOutcome(
                 handled=False, reason="planning_unavailable"

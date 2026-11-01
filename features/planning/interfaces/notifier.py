@@ -11,6 +11,15 @@ delivery channel). The channels are exclusive on purpose: in
 Telegram both terminate in the same chat, so delivering through
 both duplicates every plan message.
 
+One refinement (single-delivery fix, 2026-11-01): exclusivity
+by wiring alone was not enough — with a sender wired, the
+buffer stayed empty and the controller's empty-buffer fallback
+re-sent a clarification as the turn's reply, so the owner got
+it twice (outbox + reply). Callers whose reply IS the channel
+(interactive turns) now open a buffering() window: inside it,
+emission goes to the buffer even with a sender wired, and the
+reply carries each event exactly once.
+
 A failing sender NEVER propagates: notification failure must
 not fail a plan (port contract) — the text falls back to the
 buffer instead.
@@ -18,6 +27,7 @@ buffer instead.
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Callable, List, Optional
 
@@ -40,6 +50,7 @@ class PlanNotifier(PlanNotifierPort):
             lambda: datetime.now().astimezone()
         )
         self._buffer: List[str] = []
+        self._buffer_depth = 0
 
     # ---------------------------------------------------------
 
@@ -47,6 +58,21 @@ class PlanNotifier(PlanNotifierPort):
         """Return buffered texts and clear the buffer."""
         texts, self._buffer = self._buffer, []
         return texts
+
+    @contextmanager
+    def buffering(self):
+        """Buffer-only window (single-delivery fix, 2026-11-01).
+
+        While active, emitted texts go to the in-memory buffer
+        even when a sender is wired, so the caller can deliver
+        them through its own reply — one channel for the whole
+        turn. Nesting-safe; the depth always restores, even on
+        exceptions."""
+        self._buffer_depth += 1
+        try:
+            yield
+        finally:
+            self._buffer_depth -= 1
 
     # ---------------------------------------------------------
     # PlanNotifierPort
@@ -107,7 +133,7 @@ class PlanNotifier(PlanNotifierPort):
     # ---------------------------------------------------------
 
     def _emit(self, text: str) -> None:
-        if self._sender is not None:
+        if self._buffer_depth == 0 and self._sender is not None:
             try:
                 self._sender(text)
                 return
