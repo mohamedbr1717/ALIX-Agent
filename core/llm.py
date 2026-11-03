@@ -603,6 +603,8 @@ class HybridLLM:
     # يُختار المزود عبر REMOTE_PROVIDER
     # (openrouter افتراضيًا).
     # Groq: طبقة مجانية دائمة بدون بطاقة بنكية.
+    # FreeLLMAPI: موجّه محلّي (127.0.0.1:3001) يكدّس
+    # طبقات مجانية لعدّة مزوّدين خلف نقطة واحدة.
     REMOTE_PROVIDERS = {
         "openrouter": {
             "label": "OpenRouter",
@@ -624,6 +626,17 @@ class HybridLLM:
             "model_var": "GROQ_MODEL",
             "default_model": (
                 "llama-3.3-70b-versatile"
+            ),
+        },
+        "freellmapi": {
+            "label": "FreeLLMAPI",
+            "base_url": (
+                "http://127.0.0.1:3001/v1"
+            ),
+            "key_var": "FREELLMAPI_KEY",
+            "model_var": "FREELLMAPI_MODEL",
+            "default_model": (
+                "auto"
             ),
         },
     }
