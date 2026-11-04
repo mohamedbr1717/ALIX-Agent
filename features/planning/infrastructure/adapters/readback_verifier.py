@@ -97,6 +97,24 @@ _WRITE_FILE_SPEC = {
     "params": {"fields": {"stdout": "{{step.args.content}}"}},
 }
 WRITE_FILE_MAX_VERIFIABLE_CHARS = 4000
+#: delete_file read-back (added 2026-11-04, owner's ruling
+#: after plan p_20261104T214934_17ca blocked
+#: VERIFICATION_UNKNOWN on a delete that had in fact
+#: succeeded): verify_file reports existence explicitly in
+#: its evidence, so absence is positively provable — the
+#: mirror of calendar_delete's ``found: False`` check. Its
+#: ``ok`` is False exactly when the file is absent, so this
+#: spec alone declares ``evidence_on_failure``: the
+#: read-back gate may evaluate a failed dispatch's evidence
+#: for this channel (see _read_back for the admissibility
+#: rule, which stays fail-closed).
+_DELETE_FILE_SPEC = {
+    "read_tool": "verify_file",
+    "args": {"path": "{{step.args.path}}"},
+    "predicate": "field_equals",
+    "params": {"fields": {"evidence.exists": False}},
+    "evidence_on_failure": True,
+}
 
 
 class _Unresolvable(Exception):
@@ -275,6 +293,7 @@ class ReadBackVerifier(VerifierPort):
                 "calendar_delete",
                 "remember_fact",
                 "write_file",
+                "delete_file",
             }
         )
 
@@ -324,6 +343,10 @@ class ReadBackVerifier(VerifierPort):
             ):
                 return _WRITE_FILE_SPEC
             return None
+        if step.tool == "delete_file":
+            if step.args.get("path"):
+                return _DELETE_FILE_SPEC
+            return None
         return None
 
     def _read_back(
@@ -358,9 +381,34 @@ class ReadBackVerifier(VerifierPort):
             payload = self._dispatch.execute(read_tool, dict(args))
         except Exception:
             return None
-        if not isinstance(payload, dict) or not payload.get("ok"):
+        if not isinstance(payload, dict):
             return None
-        return payload
+        if payload.get("ok"):
+            return payload
+        # A failed dispatch is normally unusable evidence.
+        # The single exception is a spec that declares
+        # ``evidence_on_failure``: its channel reports the
+        # decisive fact in ``evidence`` even on failure
+        # (verify_file: ok is False precisely when the file
+        # is absent). Such a payload is admissible only when
+        # it carries real evidence that actually reports
+        # every field the spec will evaluate — an
+        # empty-evidence failure (e.g. a path the channel
+        # may not inspect) or a payload missing the checked
+        # fields stays unusable, hence UNKNOWN.
+        if spec.get("evidence_on_failure"):
+            evidence = payload.get("evidence")
+            if isinstance(evidence, dict) and evidence:
+                fields = (
+                    (spec.get("params") or {}).get("fields")
+                    or {}
+                )
+                if all(
+                    _dig(payload, path) is not None
+                    for path in fields
+                ):
+                    return payload
+        return None
 
     # ---------------------------------------------------------
 
