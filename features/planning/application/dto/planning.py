@@ -57,6 +57,8 @@ class PlanStepRecord:
     resolved_by_decomposition: bool = False
     verify: Optional[dict] = None
     verify_outcome: Optional[dict] = None
+    consent_digest: Optional[str] = None
+    consent_source: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -80,6 +82,8 @@ class PlanStepRecord:
             ),
             "verify": self.verify,
             "verify_outcome": self.verify_outcome,
+            "consent_digest": self.consent_digest,
+            "consent_source": self.consent_source,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -114,6 +118,8 @@ class PlanStepRecord:
             ),
             verify=data.get("verify"),
             verify_outcome=data.get("verify_outcome"),
+            consent_digest=data.get("consent_digest"),
+            consent_source=data.get("consent_source"),
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),
         )

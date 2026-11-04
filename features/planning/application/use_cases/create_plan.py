@@ -17,6 +17,11 @@ from domain.planning.entities import (
     PlanStep,
     PriorAction,
 )
+from domain.planning.consent import (
+    CONSENT_PLAN_CARD,
+    consent_digest_for,
+    inherits_plan_consent,
+)
 from domain.planning.ask import (
     ASK_REPEAT_COOLDOWN_DAYS,
     MAX_QUESTION_CHARS,
@@ -380,6 +385,27 @@ class CreatePlanUseCase:
                 # deliberately.
                 state = StepState.BLOCKED
                 blocked_reason = BlockedReason.SCHEDULED_POLICY
+            consent_digest = None
+            consent_source = None
+            if (
+                request.origin == "interactive"
+                and state is StepState.PENDING
+                and vstep.tool in self._destructive_tools
+                and inherits_plan_consent(vstep.tool)
+            ):
+                # Decision 7 (owner's split ruling, 2026-11-04):
+                # an interactive destructive step whose concrete
+                # (tool, args) this accepted draft fixes executes
+                # under the plan approval — the digest is the
+                # enforcement: any later drift revokes the
+                # inheritance and the step falls back to its own
+                # card at execution. Tools with a stricter
+                # per-call rule (phone_call / send_sms) are never
+                # stamped.
+                consent_digest = consent_digest_for(
+                    vstep.tool, dict(vstep.args)
+                )
+                consent_source = CONSENT_PLAN_CARD
             steps.append(
                 PlanStep(
                     step_id=step_id,
@@ -392,6 +418,8 @@ class CreatePlanUseCase:
                     idempotency_key=f"{plan_id}:{step_id}",
                     blocked_reason=blocked_reason,
                     verify=vstep.verify,
+                    consent_digest=consent_digest,
+                    consent_source=consent_source,
                     created_at=now_iso,
                     updated_at=now_iso,
                 )
@@ -426,6 +454,11 @@ class CreatePlanUseCase:
                 for s in steps
                 if s.state is StepState.PENDING
                 and s.tool in self._confirming_tools
+                # Decision 7: a plan-consent-stamped step will
+                # NOT ask when reached — counting it would make
+                # the creation notice promise a card that never
+                # comes.
+                and s.consent_source != CONSENT_PLAN_CARD
             )
             self._notifier.created(plan, approval_steps)
 

@@ -260,6 +260,7 @@ def build_planning_controller(
                 notifier=notifier,
                 means_log=means_log,
                 capability_checker=capabilities.state_for,
+                destructive_tools=frozenset(destructive_tools),
             )
 
     return PlanningController(

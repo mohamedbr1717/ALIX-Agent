@@ -46,6 +46,8 @@ def _step_to_record(step: PlanStep) -> PlanStepRecord:
         ),
         verify=step.verify,
         verify_outcome=step.verify_outcome,
+        consent_digest=step.consent_digest,
+        consent_source=step.consent_source,
         created_at=step.created_at,
         updated_at=step.updated_at,
     )
@@ -75,6 +77,8 @@ def _step_from_record(record: PlanStepRecord) -> PlanStep:
         ),
         verify=record.verify,
         verify_outcome=record.verify_outcome,
+        consent_digest=record.consent_digest,
+        consent_source=record.consent_source,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

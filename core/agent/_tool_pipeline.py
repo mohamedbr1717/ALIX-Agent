@@ -1,10 +1,15 @@
 """ALIXAgent _ToolPipelineMixin (private)."""
 from __future__ import annotations
 
+import hmac
 import json
 import time
 
 from core.prompt_guard import guard_tool_output
+from domain.planning.consent import (
+    NEVER_INHERIT_CONSENT_TOOLS,
+    consent_digest_for,
+)
 from core.feature_bridge import build_migrated_tool_handlers
 def _failure_error_for_audit(result: object) -> str | None:
     """Extract a short error string for the audit trail on tool failure.
@@ -25,7 +30,8 @@ class _ToolPipelineMixin:
     def confirm_tool(
         self,
         name: str,
-        arguments: dict
+        arguments: dict,
+        plan_consent_digest: str = None
     ) -> bool:
         """
         يطلب موافقة المستخدم على العمليات الحساسة.
@@ -44,7 +50,7 @@ class _ToolPipelineMixin:
             )
             return False
         approved = self._confirm_tool_inner(
-            name, arguments
+            name, arguments, plan_consent_digest
         )
         if not approved:
             try:
@@ -56,7 +62,8 @@ class _ToolPipelineMixin:
     def _confirm_tool_inner(
         self,
         name: str,
-        arguments: dict
+        arguments: dict,
+        plan_consent_digest: str = None
     ) -> bool:
         """
         يطلب موافقة المستخدم على العمليات الحساسة.
@@ -102,6 +109,48 @@ class _ToolPipelineMixin:
 
             return self._scheduled_destructive_approval(
                 name, arguments
+            )
+
+        if plan_consent_digest:
+            # Decision 7 (owner's split ruling, 2026-11-04): a
+            # destructive call carrying the consent digest of an
+            # approved interactive plan is confirmed BY that plan
+            # approval — but only when the digest recomputes
+            # exactly over THIS (tool, arguments) here at the
+            # gate, and the tool carries no stricter per-call
+            # rule. The scheduled branch above has already run:
+            # plan consent never speaks in scheduled mode. A
+            # mismatched digest is neither an error nor a
+            # denial — the call simply faces the ordinary card
+            # below (fail-closed to asking, never to executing).
+            level = self.policy.tool_permission(name)
+            consented = False
+            try:
+                consented = (
+                    level == "destructive"
+                    and name not in NEVER_INHERIT_CONSENT_TOOLS
+                    and hmac.compare_digest(
+                        consent_digest_for(name, arguments),
+                        str(plan_consent_digest),
+                    )
+                )
+            except Exception:
+                consented = False
+            if consented:
+                self.audit(
+                    "tool_confirmation_plan_consent",
+                    {
+                        "tool": name,
+                        "permission": level,
+                        "consent_digest": str(
+                            plan_consent_digest
+                        )[:12],
+                    },
+                )
+                return True
+            self.audit(
+                "tool_confirmation_plan_consent_rejected",
+                {"tool": name, "permission": level},
             )
 
         if not self.policy.requires_confirmation(name):
@@ -282,7 +331,8 @@ class _ToolPipelineMixin:
     def execute_tool(
         self,
         name: str,
-        arguments: dict
+        arguments: dict,
+        plan_consent_digest: str = None
     ) -> dict:
 
         if not isinstance(arguments, dict):
@@ -367,7 +417,8 @@ class _ToolPipelineMixin:
 
         if not self.confirm_tool(
             name,
-            arguments
+            arguments,
+            plan_consent_digest
         ):
             result = {
                 "ok": False,

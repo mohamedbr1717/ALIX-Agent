@@ -10,10 +10,17 @@ production adapter wraps the existing execute_tool/Policy path.
 """
 from __future__ import annotations
 
+import hmac
 import re
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from domain.planning.consent import (
+    CONSENT_EXEC_CARD,
+    CONSENT_PLAN_CARD,
+    consent_digest_for,
+    inherits_plan_consent,
+)
 from domain.planning.derivation import (
     derive_plan_state,
     next_runnable_step,
@@ -127,6 +134,7 @@ class RunPlanUseCase:
         notifier: Optional[PlanNotifierPort] = None,
         means_log=None,
         capability_checker=None,
+        destructive_tools: frozenset = frozenset(),
     ):
         self._dispatch = dispatch
         self._verifier = verifier
@@ -136,6 +144,7 @@ class RunPlanUseCase:
         self._notifier = notifier
         self._means_log = means_log
         self._capability_checker = capability_checker
+        self._destructive_tools = frozenset(destructive_tools)
 
     # ---------------------------------------------------------
 
@@ -207,7 +216,10 @@ class RunPlanUseCase:
             plan.awaiting_step_id = step.step_id
             self._save(plan)
 
-            result = self._dispatch_one(step)
+            consent_marker = self._plan_consent_marker(plan, step)
+            result, dispatched = self._dispatch_one(
+                step, consent_marker
+            )
 
             plan.awaiting_step_id = None
 
@@ -223,7 +235,24 @@ class RunPlanUseCase:
                 alt_url = alternate_fetch_url(plan, step)
                 if alt_url is not None:
                     step.args = {**step.args, "url": alt_url}
-                    result = self._dispatch_one(step)
+                    result, dispatched = self._dispatch_one(
+                        step, consent_marker
+                    )
+
+            if (
+                consent_marker is None
+                and dispatched
+                and step.tool in self._destructive_tools
+                and not is_approval_denial(result)
+            ):
+                # Decision 7 bookkeeping: a destructive step that
+                # dispatched WITHOUT plan consent was authorized
+                # by the pipeline's own per-call card (every
+                # destructive tool is a confirming tool in the
+                # production wiring) — record that truthfully so
+                # the audit answers "under which approval?". A
+                # denial is not a consent and records nothing.
+                step.consent_source = CONSENT_EXEC_CARD
 
             if result.get("ok"):
                 outcome = self._verifier.verify(step, result)
@@ -372,11 +401,73 @@ class RunPlanUseCase:
 
     # ---------------------------------------------------------
 
-    def _dispatch_one(self, step: PlanStep) -> dict:
+    def _plan_consent_marker(
+        self, plan: Plan, step: PlanStep
+    ) -> Optional[str]:
+        """Decision 7: the consent digest to present for this
+        dispatch, or None when the step must face its own card.
+
+        The inheritance is narrow and every condition is checked
+        HERE, again, at execution time — acceptance stamping is
+        never trusted blindly:
+
+        - interactive plan origin only (scheduled steps never
+          inherit; scheduled destructive steps are born BLOCKED
+          and do not reach this code at all);
+        - the tool is destructive AND carries no stricter
+          per-call rule (phone_call / send_sms never inherit);
+        - the step was stamped at acceptance (plan_card source
+          AND a digest present — decomposition-born and legacy
+          steps are unstamped by construction);
+        - the digest still matches the step's CURRENT
+          (tool, args): any drift since acceptance revokes the
+          inheritance. A digest error revokes it too — the
+          fallback is always the step's own card, never a
+          silent execution.
+        """
         try:
-            result = self._dispatch.execute(
-                step.tool, dict(step.args)
-            )
+            if plan.origin != "interactive":
+                return None
+            if step.tool not in self._destructive_tools:
+                return None
+            if not inherits_plan_consent(step.tool):
+                return None
+            if step.consent_source != CONSENT_PLAN_CARD:
+                return None
+            if not step.consent_digest:
+                return None
+            current = consent_digest_for(step.tool, step.args)
+            if not hmac.compare_digest(
+                current, step.consent_digest
+            ):
+                return None
+            return step.consent_digest
+        except Exception:
+            return None
+
+    def _dispatch_one(
+        self, step: PlanStep, consent_digest: Optional[str] = None
+    ):
+        """Dispatch one step; returns (result, dispatched).
+
+        ``dispatched`` is False only when the adapter itself
+        raised before the pipeline ran — the distinction the
+        Decision-7 bookkeeping needs (no pipeline run, no card,
+        no consent of any kind). A legacy two-argument dispatch
+        fake never sees the consent parameter: it is passed only
+        when a marker exists.
+        """
+        try:
+            if consent_digest is None:
+                result = self._dispatch.execute(
+                    step.tool, dict(step.args)
+                )
+            else:
+                result = self._dispatch.execute(
+                    step.tool,
+                    dict(step.args),
+                    consent_digest=consent_digest,
+                )
         except Exception as exc:
             # The production path (execute_tool) never raises —
             # it converts exceptions into result dicts. A raising
@@ -385,13 +476,13 @@ class RunPlanUseCase:
             return {
                 "ok": False,
                 "error": f"تعذّر إرسال الأداة: {exc}",
-            }
+            }, False
         if not isinstance(result, dict):
             return {
                 "ok": False,
                 "error": "نتيجة الأداة غير صالحة.",
-            }
-        return result
+            }, True
+        return result, True
 
     def _save(self, plan: Plan) -> None:
         now = self._clock()

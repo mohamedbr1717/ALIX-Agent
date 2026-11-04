@@ -67,6 +67,15 @@ class PlanStep:
     #: been verified (or predates Decision 2).
     verify: Optional[dict] = None
     verify_outcome: Optional[dict] = None
+    #: Decision 7 (destructive-step consent, owner's split ruling
+    #: 2026-11-04): the consent digest stamped at plan acceptance
+    #: over the canonical (tool, args) — see domain/planning/
+    #: consent.py — and which approval actually authorized the
+    #: dispatch ("plan_card" | "exec_card" | None). Both default
+    #: to None: an unstamped step never inherits consent, and old
+    #: stored records load unstamped.
+    consent_digest: Optional[str] = None
+    consent_source: Optional[str] = None
     # Decision 3 (owner's ruling, 2026-11-01): the reserved
     # compensate field was RETIRED — a clean, honest deletion.
     # It was copied verbatim since Decision 1 and never once
