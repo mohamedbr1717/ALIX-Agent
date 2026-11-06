@@ -59,6 +59,8 @@ class PlanStepRecord:
     verify_outcome: Optional[dict] = None
     consent_digest: Optional[str] = None
     consent_source: Optional[str] = None
+    output_text: Optional[str] = None
+    resolved_args_hash: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -84,6 +86,8 @@ class PlanStepRecord:
             "verify_outcome": self.verify_outcome,
             "consent_digest": self.consent_digest,
             "consent_source": self.consent_source,
+            "output_text": self.output_text,
+            "resolved_args_hash": self.resolved_args_hash,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -120,6 +124,8 @@ class PlanStepRecord:
             verify_outcome=data.get("verify_outcome"),
             consent_digest=data.get("consent_digest"),
             consent_source=data.get("consent_source"),
+            output_text=data.get("output_text"),
+            resolved_args_hash=data.get("resolved_args_hash"),
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),
         )

@@ -13,6 +13,7 @@ import re
 import secrets
 from datetime import datetime
 
+from domain.planning.binding import MAX_BINDING_CHARS
 from domain.planning.entities import MAX_STORED_TEXT_CHARS
 
 #: Conservative secret shapes (same spirit as the LLM router's
@@ -93,6 +94,29 @@ def summarize_result(result: dict) -> str:
         or ""
     )
     return truncate_stored(str(text))
+
+
+def extract_output_text(result: dict) -> str:
+    """The step's bindable output (step-output binding,
+    2026-11-06): the same field priority as summarize_result,
+    under the SAME stored-text discipline — secret-redacted
+    first, then truncated — but at the binding cap
+    (MAX_BINDING_CHARS), because this text is data a later
+    step may consume, not a display summary. Raw tool results
+    are still never persisted."""
+    if not isinstance(result, dict):
+        text = str(result)
+    else:
+        text = (
+            result.get("message")
+            or result.get("stdout")
+            or result.get("error")
+            or ""
+        )
+    cleaned = redact_text(str(text)).strip()
+    if len(cleaned) > MAX_BINDING_CHARS:
+        cleaned = cleaned[:MAX_BINDING_CHARS]
+    return cleaned
 
 
 def result_error_text(result: dict) -> str:

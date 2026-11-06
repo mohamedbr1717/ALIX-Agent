@@ -12,9 +12,14 @@ from __future__ import annotations
 
 import hmac
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, Optional
 
+from domain.planning.binding import (
+    BindingResolutionError,
+    resolve_args,
+    step_uses_bindings,
+)
 from domain.planning.consent import (
     CONSENT_EXEC_CARD,
     CONSENT_PLAN_CARD,
@@ -46,6 +51,7 @@ from features.planning.application.use_cases.decompose_step import (
     DecomposeStepUseCase,
 )
 from features.planning.application.use_cases.helpers import (
+    extract_output_text,
     iso,
     result_error_text,
     summarize_result,
@@ -204,6 +210,74 @@ class RunPlanUseCase:
                     stopped_reason = "capability_unavailable"
                     break
 
+            # Step-output binding resolution (2026-11-06): a
+            # step whose args bind an earlier step's output is
+            # materialized HERE, before it counts as attempted —
+            # the same pre-flight honesty as the capability
+            # check above. Values come only from steps of THIS
+            # plan that already SUCCEEDED with a captured
+            # (non-empty) output; anything missing blocks the
+            # step without dispatching — the token never runs
+            # literally and never becomes an empty string. The
+            # stored args keep the tokens (the record shows the
+            # intent); what runs is the materialized copy, whose
+            # canonical digest is stamped on the step as the
+            # audit of what actually executed.
+            dispatch_args = None
+            if step_uses_bindings(step.args):
+                outputs = {}
+                for prior in plan.steps:
+                    if prior.step_id == step.step_id:
+                        break
+                    if (
+                        prior.state is StepState.SUCCEEDED
+                        and prior.output_text
+                    ):
+                        outputs[prior.step_id] = prior.output_text
+                try:
+                    dispatch_args = resolve_args(
+                        step.args, outputs
+                    )
+                except BindingResolutionError as exc:
+                    plan.transition_step(
+                        step.step_id,
+                        StepState.BLOCKED,
+                        blocked_reason=(
+                            BlockedReason.BINDING_UNAVAILABLE
+                        ),
+                        now=iso(now),
+                    )
+                    if exc.kind == "too_large":
+                        step.error = (
+                            "قيمة مرتبطة تجاوزت حد الحجم عند "
+                            f"التجسيد: {exc.detail}"
+                        )
+                        reason_text = (
+                            "تجاوزت القيمة المرتبطة حد الحجم "
+                            "(ربط المخرجات)."
+                        )
+                    else:
+                        step.error = (
+                            "مخرجات خطوة سابقة غير متاحة "
+                            f"للربط: {exc.detail}"
+                        )
+                        reason_text = (
+                            "تعذّر تجسيد وسائط الخطوة من "
+                            "مخرجات سابقاتها (ربط المخرجات)."
+                        )
+                    plan.escalated = True
+                    self._save(plan)
+                    if self._notifier is not None:
+                        self._notifier.escalated(
+                            plan, step, reason_text
+                        )
+                    escalated_notified = True
+                    stopped_reason = "binding_unavailable"
+                    break
+                step.resolved_args_hash = consent_digest_for(
+                    step.tool, dispatch_args
+                )
+
             plan.transition_step(
                 step.step_id, StepState.RUNNING, now=iso(now)
             )
@@ -218,7 +292,7 @@ class RunPlanUseCase:
 
             consent_marker = self._plan_consent_marker(plan, step)
             result, dispatched = self._dispatch_one(
-                step, consent_marker
+                step, consent_marker, dispatch_args
             )
 
             plan.awaiting_step_id = None
@@ -234,10 +308,29 @@ class RunPlanUseCase:
                 # never a decomposition into invented sub-steps.
                 alt_url = alternate_fetch_url(plan, step)
                 if alt_url is not None:
-                    step.args = {**step.args, "url": alt_url}
+                    if dispatch_args is None:
+                        step.args = {
+                            **step.args,
+                            "url": alt_url,
+                        }
+                    else:
+                        # Bound step: the retry rewrites the
+                        # materialized copy only — the stored
+                        # args keep the binding tokens that were
+                        # accepted in the draft.
+                        dispatch_args = {
+                            **dispatch_args,
+                            "url": alt_url,
+                        }
                     result, dispatched = self._dispatch_one(
-                        step, consent_marker
+                        step, consent_marker, dispatch_args
                     )
+
+            # Binding capture: whatever the dispatch settled on
+            # is this step's bindable output for later steps —
+            # redacted and capped by extract_output_text, never
+            # the raw result dict.
+            step.output_text = extract_output_text(result)
 
             if (
                 consent_marker is None
@@ -255,7 +348,20 @@ class RunPlanUseCase:
                 step.consent_source = CONSENT_EXEC_CARD
 
             if result.get("ok"):
-                outcome = self._verifier.verify(step, result)
+                # Verification judges WHAT ACTUALLY RAN: for a
+                # bound step the verify spec's {{step.args.…}}
+                # templates must resolve against the MATERIALIZED
+                # args, not the stored binding tokens — otherwise
+                # a correct write would read back as contradicted
+                # (its file holds real text; the token is not the
+                # content). The stored step keeps its tokens; the
+                # verifier sees a copy carrying what dispatched.
+                verify_step = (
+                    replace(step, args=dispatch_args)
+                    if dispatch_args is not None
+                    else step
+                )
+                outcome = self._verifier.verify(verify_step, result)
                 step.verify_outcome = outcome.to_record()
                 if outcome.verdict is Verdict.VERIFIED:
                     plan.transition_step(
@@ -446,7 +552,10 @@ class RunPlanUseCase:
             return None
 
     def _dispatch_one(
-        self, step: PlanStep, consent_digest: Optional[str] = None
+        self,
+        step: PlanStep,
+        consent_digest: Optional[str] = None,
+        args: Optional[dict] = None,
     ):
         """Dispatch one step; returns (result, dispatched).
 
@@ -455,17 +564,22 @@ class RunPlanUseCase:
         Decision-7 bookkeeping needs (no pipeline run, no card,
         no consent of any kind). A legacy two-argument dispatch
         fake never sees the consent parameter: it is passed only
-        when a marker exists.
+        when a marker exists. ``args`` carries the MATERIALIZED
+        args of a bound step (binding resolution); None means
+        the step's stored args run as they are.
         """
+        call_args = (
+            dict(args) if args is not None else dict(step.args)
+        )
         try:
             if consent_digest is None:
                 result = self._dispatch.execute(
-                    step.tool, dict(step.args)
+                    step.tool, call_args
                 )
             else:
                 result = self._dispatch.execute(
                     step.tool,
-                    dict(step.args),
+                    call_args,
                     consent_digest=consent_digest,
                 )
         except Exception as exc:

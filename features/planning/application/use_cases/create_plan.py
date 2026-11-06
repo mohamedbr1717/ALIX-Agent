@@ -17,6 +17,7 @@ from domain.planning.entities import (
     PlanStep,
     PriorAction,
 )
+from domain.planning.binding import step_uses_bindings
 from domain.planning.consent import (
     CONSENT_PLAN_CARD,
     consent_digest_for,
@@ -392,6 +393,7 @@ class CreatePlanUseCase:
                 and state is StepState.PENDING
                 and vstep.tool in self._destructive_tools
                 and inherits_plan_consent(vstep.tool)
+                and not step_uses_bindings(vstep.args)
             ):
                 # Decision 7 (owner's split ruling, 2026-11-04):
                 # an interactive destructive step whose concrete
@@ -401,7 +403,14 @@ class CreatePlanUseCase:
                 # inheritance and the step falls back to its own
                 # card at execution. Tools with a stricter
                 # per-call rule (phone_call / send_sms) are never
-                # stamped.
+                # stamped. A step whose args bind an earlier
+                # step's output is never stamped either (binding,
+                # 2026-11-06): its args are NOT concrete at
+                # acceptance — they materialize at dispatch,
+                # which is exactly Decision 7's "args
+                # materialized after approval ⇒ own card" case,
+                # so the step is counted in approval_steps below
+                # and faces its card with the real values.
                 consent_digest = consent_digest_for(
                     vstep.tool, dict(vstep.args)
                 )

@@ -11,18 +11,27 @@ import re
 from dataclasses import dataclass
 from typing import Mapping, Optional, Union
 
+from .binding import (
+    find_bindings,
+    validate_bindings,
+    without_bindings,
+)
 from .entities import MAX_STEPS_PER_PLAN
 
 #: Planner-invented cross-step templates ({{step.result.0.…}}):
-#: the executor has NO template engine for step args — templates
-#: are resolved only inside a verify spec, by the verifier.
-#: A draft binding one into args would dispatch the literal
-#: string as the value (three live incidents; the latest,
-#: 2026-11-01, put an approval card in front of the owner
-#: asking to write "{{step.result.0.content}}" into gold.txt).
-#: Such a draft is rejected whole; the caller falls back to
-#: direct execution, which CAN carry real values between its
-#: own sequential tool calls.
+#: step args carry literal values — templates are resolved only
+#: inside a verify spec, by the verifier. A draft binding one
+#: into args would dispatch the literal string as the value
+#: (three live incidents; the latest, 2026-11-01, put an
+#: approval card in front of the owner asking to write
+#: "{{step.result.0.content}}" into gold.txt). Such a draft is
+#: rejected whole; the caller falls back to direct execution,
+#: which CAN carry real values between its own sequential tool
+#: calls. The ONE governed exception (2026-11-06) is the
+#: step-output binding {{steps.sN.output}} — domain/planning/
+#: binding.py owns its grammar; the scan below runs on args
+#: with legal binding tokens removed, so that form is judged
+#: by the binding validation and every other form by this one.
 _PLACEHOLDER_RE = re.compile(r"\{\{[^{}]+\}\}")
 
 
@@ -124,6 +133,7 @@ def validate_step_list(
     *,
     max_steps: int,
     read_tools: frozenset = frozenset(),
+    allow_bindings: bool = True,
 ) -> Union[list, PlanRejected]:
     """Validate a raw list of step drafts.
 
@@ -189,13 +199,37 @@ def validate_step_list(
                 f"index {index}: {tool} {sorted(extra)}",
             )
 
-        if _contains_placeholder(args):
+        if _contains_placeholder(without_bindings(args)):
             return PlanRejected(
                 "placeholder_args",
                 f"index {index}: {tool} binds a {{{{...}}}} "
                 "template into args — step args must be literal "
                 "values; templates exist only inside verify specs",
             )
+
+        if find_bindings(args):
+            # Step-output binding (2026-11-06): the ONE legal
+            # template family in args. References must name a
+            # step EARLIER in this same draft (ids are assigned
+            # s1..sN in draft order at creation, so this step —
+            # 0-based `index` — may reference s1..s{index}).
+            # Decomposition drafts pass allow_bindings=False:
+            # sub-steps are literal-only in v1, by scope ruling.
+            if not allow_bindings:
+                return PlanRejected(
+                    "binding_invalid",
+                    f"index {index}: {tool} binds a step output "
+                    "— bindings are not allowed in this draft",
+                )
+            prior_ids = {
+                f"s{i}" for i in range(1, index + 1)
+            }
+            binding_error = validate_bindings(args, prior_ids)
+            if binding_error is not None:
+                return PlanRejected(
+                    "binding_invalid",
+                    f"index {index}: {binding_error}",
+                )
 
         verify = None
         if "verify" in raw:
@@ -225,6 +259,7 @@ def validate_plan_draft(
     tool_schemas: Mapping[str, frozenset],
     *,
     read_tools: frozenset = frozenset(),
+    allow_bindings: bool = True,
 ) -> Union[list, PlanRejected]:
     """Validate a full plan draft ``{"steps": [...]}``.
 
@@ -246,4 +281,5 @@ def validate_plan_draft(
         tool_schemas,
         max_steps=MAX_STEPS_PER_PLAN,
         read_tools=read_tools,
+        allow_bindings=allow_bindings,
     )

@@ -76,6 +76,17 @@ class PlanStep:
     #: stored records load unstamped.
     consent_digest: Optional[str] = None
     consent_source: Optional[str] = None
+    #: Step-output binding (2026-11-06): the step's captured
+    #: tool output (redacted, capped at binding.MAX_BINDING_
+    #: CHARS) that later steps may bind to via
+    #: {{steps.sN.output}}, and the canonical digest of the
+    #: MATERIALIZED (tool, args) when this step's own args were
+    #: resolved from bindings at dispatch — the audit answer to
+    #: "what actually ran". Both default to None: unbound and
+    #: legacy steps carry neither, and old stored records load
+    #: fine without them.
+    output_text: Optional[str] = None
+    resolved_args_hash: Optional[str] = None
     # Decision 3 (owner's ruling, 2026-11-01): the reserved
     # compensate field was RETIRED — a clean, honest deletion.
     # It was copied verbatim since Decision 1 and never once

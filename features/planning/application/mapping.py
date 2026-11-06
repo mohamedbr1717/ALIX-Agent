@@ -48,6 +48,8 @@ def _step_to_record(step: PlanStep) -> PlanStepRecord:
         verify_outcome=step.verify_outcome,
         consent_digest=step.consent_digest,
         consent_source=step.consent_source,
+        output_text=step.output_text,
+        resolved_args_hash=step.resolved_args_hash,
         created_at=step.created_at,
         updated_at=step.updated_at,
     )
@@ -79,6 +81,8 @@ def _step_from_record(record: PlanStepRecord) -> PlanStep:
         verify_outcome=record.verify_outcome,
         consent_digest=record.consent_digest,
         consent_source=record.consent_source,
+        output_text=record.output_text,
+        resolved_args_hash=record.resolved_args_hash,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

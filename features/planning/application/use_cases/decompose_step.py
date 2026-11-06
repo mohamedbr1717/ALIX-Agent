@@ -124,6 +124,7 @@ class DecomposeStepUseCase:
             self._tool_schemas,
             max_steps=MAX_SUBSTEPS,
             read_tools=self._read_tools,
+            allow_bindings=False,
         )
         if isinstance(validated, PlanRejected):
             self._save(plan)
@@ -175,6 +176,7 @@ class DecomposeStepUseCase:
             self._tool_schemas,
             max_steps=MAX_STEPS_PER_PLAN,
             read_tools=self._read_tools,
+            allow_bindings=False,
         )
         if isinstance(validated, PlanRejected):
             self._save(plan)

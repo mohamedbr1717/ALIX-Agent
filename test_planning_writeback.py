@@ -200,7 +200,12 @@ class TestPlaceholderRejection(unittest.TestCase):
 
     def test_prompt_states_the_boundary(self):
         self.assertIn("القوالب محظورة خارج verify", _PLAN_SYSTEM)
-        self.assertIn("قيم حرفية دائمًا", _PLAN_SYSTEM)
+        # Boundary updated 2026-11-06 (step-output binding):
+        # args are literal EXCEPT the one governed reference
+        # form, and promissory prose placeholders are banned by
+        # name — the prompt must state both halves.
+        self.assertIn("{{steps.sN.output}}", _PLAN_SYSTEM)
+        self.assertIn("وعودًا لغوية", _PLAN_SYSTEM)
 
 
 class FakePlanner(PlannerPort):

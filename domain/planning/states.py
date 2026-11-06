@@ -38,6 +38,12 @@ class BlockedReason(Enum):
     #: (probed or owner-declared). Not a means failure: the
     #: attempt was never made.
     CAPABILITY_UNAVAILABLE = "capability_unavailable"
+    #: Step-output binding (2026-11-06): the step never
+    #: dispatched — a step it binds to ({{steps.sN.output}}) did
+    #: not succeed or its output was never captured, so the
+    #: step's args could not be materialized. Not a means
+    #: failure: the attempt was never made.
+    BINDING_UNAVAILABLE = "binding_unavailable"
 
 
 class PlanState(Enum):
