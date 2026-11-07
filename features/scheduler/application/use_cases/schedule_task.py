@@ -3,7 +3,14 @@ from __future__ import annotations
 
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _LOCAL_TZ = ZoneInfo("Africa/Casablanca")
+except Exception:  # tzdata unavailable (rare) — Morocco is UTC+1
+    _LOCAL_TZ = timezone(timedelta(hours=1))
 
 from domain.scheduling.cron import next_after, parse_cron
 from features.scheduler.application.dto.scheduler import (
@@ -18,15 +25,13 @@ from features.scheduler.application.ports.task_store import TaskStorePort
 
 
 def _now_iso() -> str:
-    return (
-        datetime.now()
-        .astimezone()
-        .isoformat(timespec="seconds")
-    )
+    return datetime.now(
+        _LOCAL_TZ
+    ).isoformat(timespec="seconds")
 
 
 def _parse_at(value: str) -> datetime:
-    """Parse an ISO datetime; naive values mean local time."""
+    """Parse an ISO datetime; naive values mean Africa/Casablanca time."""
 
     text = value.strip()
 
@@ -39,7 +44,7 @@ def _parse_at(value: str) -> datetime:
         ) from exc
 
     if moment.tzinfo is None:
-        moment = moment.astimezone()
+        moment = moment.replace(tzinfo=_LOCAL_TZ)
 
     return moment
 
@@ -106,7 +111,7 @@ class ScheduleTaskUseCase:
                 "النوع must be 'cron' أو 'at'.",
             )
 
-        now = datetime.now().astimezone()
+        now = datetime.now(_LOCAL_TZ)
 
         try:
 

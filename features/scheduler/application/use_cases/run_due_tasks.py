@@ -17,8 +17,15 @@ Per active task:
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _LOCAL_TZ = ZoneInfo("Africa/Casablanca")
+except Exception:  # tzdata unavailable (rare) — Morocco is UTC+1
+    _LOCAL_TZ = timezone(timedelta(hours=1))
 
 from domain.scheduling.cron import next_after
 from features.scheduler.application.dto.scheduler import TaskRecord
@@ -32,7 +39,7 @@ def _parse_iso(value: str) -> datetime:
     moment = datetime.fromisoformat(value)
 
     if moment.tzinfo is None:
-        moment = moment.astimezone()
+        moment = moment.replace(tzinfo=_LOCAL_TZ)
 
     return moment
 
@@ -51,7 +58,7 @@ class RunDueTasksUseCase:
         self._executor = executor
         self._clock = (
             clock
-            or (lambda: datetime.now().astimezone())
+            or (lambda: datetime.now(_LOCAL_TZ))
         )
         self._audit_fn = audit_fn
 
